@@ -27,6 +27,37 @@
       </div>
       <audio id="preview" controls hidden></audio>
     </section>
+
+    <section class="card" id="annotateCard" hidden>
+      <h2>Annotate</h2>
+
+      <label>Filename</label>
+      <input id="filename" type="text" placeholder="traffic_001" />
+
+      <label>Noise Class</label>
+      <div class="chips" id="labelChips"></div>
+
+      <label>Severity</label>
+      <div class="chips" id="severityChips"></div>
+
+      <label>Environment</label>
+      <div class="chips" id="envChips"></div>
+
+      <label>Location Context</label>
+      <div class="chips" id="ctxChips"></div>
+
+      <label class="row"><input id="isNoise" type="checkbox" checked /> Is noise</label>
+
+      <label>Annotator ID</label>
+      <input id="annotator" type="text" placeholder="hemal" />
+
+      <label>Notes</label>
+      <textarea id="notes" rows="2"></textarea>
+
+      <div class="controls">
+        <button id="saveLocalBtn" class="btn btn-primary">Save Locally</button>
+      </div>
+    </section>
   </main>
 
   <div id="snackbar" class="snackbar" hidden></div>

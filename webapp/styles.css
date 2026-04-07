@@ -33,6 +33,20 @@ html,body{margin:0;background:var(--bg);color:var(--text);
 .btn-primary{background:var(--brand);color:#00261A;border-color:var(--brand)}
 .btn-primary:hover:not(:disabled){filter:brightness(1.1)}
 audio{width:100%;margin-top:12px}
+label{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px;
+  text-transform:uppercase;letter-spacing:.6px}
+label.row{display:flex;align-items:center;gap:8px;text-transform:none;
+  letter-spacing:0;color:var(--text);font-size:14px}
+input[type=text],textarea,input[type=file]{width:100%;background:var(--bg);
+  border:1px solid var(--border);border-radius:10px;padding:10px 12px;
+  color:var(--text);font-size:14px;font-family:inherit}
+input:focus,textarea:focus{outline:none;border-color:var(--brand)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border:1px solid var(--border);border-radius:999px;
+  font-size:13px;cursor:pointer;color:var(--muted);user-select:none}
+.chip.active{background:var(--brand);color:#00261A;border-color:var(--brand);
+  font-weight:600}
+.muted{color:var(--muted);font-size:13px}
 .snackbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
   background:var(--surface);border:1px solid var(--border);
   padding:12px 18px;border-radius:12px;font-size:14px;
