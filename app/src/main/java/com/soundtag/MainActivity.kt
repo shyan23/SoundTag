@@ -46,7 +46,7 @@ import com.soundtag.service.RecordingState
 import com.soundtag.ui.annotate.AnnotateSheetContent
 import com.soundtag.ui.dashboard.DashboardScreen
 import com.soundtag.ui.record.RecordScreen
-import com.soundtag.ui.setup.FolderPickerDialog
+import com.soundtag.ui.setup.FolderPickerScreen
 import com.soundtag.ui.setup.SetupScreen
 import com.soundtag.ui.theme.SoundTagBackground
 import com.soundtag.ui.theme.SoundTagBorder
@@ -147,6 +147,17 @@ class MainActivity : ComponentActivity() {
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                         when {
+                            showFolderPicker -> {
+                                FolderPickerScreen(
+                                    folders = driveFolders,
+                                    onSelect = { folder -> vm.selectFolder(folder.id, folder.name) },
+                                    onUseDefault = {
+                                        vm.clearCustomFolder()
+                                        vm.closeFolderPicker()
+                                    },
+                                    onBack = { vm.closeFolderPicker() }
+                                )
+                            }
                             showSetup -> {
                                 SetupScreen(
                                     name = annotatorName,
@@ -162,17 +173,6 @@ class MainActivity : ComponentActivity() {
                                     onStartCollecting = { vm.completeSetup() }
                                 )
 
-                                if (showFolderPicker) {
-                                    FolderPickerDialog(
-                                        folders = driveFolders,
-                                        onSelect = { folder -> vm.selectFolder(folder.id, folder.name) },
-                                        onUseDefault = {
-                                            vm.clearCustomFolder()
-                                            vm.closeFolderPicker()
-                                        },
-                                        onDismiss = { vm.closeFolderPicker() }
-                                    )
-                                }
                             }
                             showDashboard -> {
                                 DashboardScreen(
