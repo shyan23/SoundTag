@@ -49,6 +49,7 @@ fun DashboardScreen(
     onRetryUpload: (String) -> Unit,
     onDeleteRecording: (String) -> Unit,
     onPlayRecording: (String) -> Unit,
+    onOpenDetail: (RecordingEntry) -> Unit,
     playingFilename: String,
     onOpenMap: (Double, Double, String) -> Unit,
     onSettings: () -> Unit,
@@ -123,6 +124,7 @@ fun DashboardScreen(
                 onRetryUpload = onRetryUpload,
                 onDeleteRecording = onDeleteRecording,
                 onPlayRecording = onPlayRecording,
+                onOpenDetail = onOpenDetail,
                 playingFilename = playingFilename
             )
             1 -> DatasetStatsTab(
@@ -174,6 +176,7 @@ private fun RecordingsTab(
     onRetryUpload: (String) -> Unit,
     onDeleteRecording: (String) -> Unit,
     onPlayRecording: (String) -> Unit,
+    onOpenDetail: (RecordingEntry) -> Unit,
     playingFilename: String
 ) {
     LazyColumn(
@@ -249,6 +252,7 @@ private fun RecordingsTab(
             RecordingRow(
                 entry = entry,
                 isPlaying = playingFilename == entry.filename,
+                onTap = { onOpenDetail(entry) },
                 onPlay = { onPlayRecording(entry.filename) },
                 onRetry = { onRetryUpload(entry.filename) },
                 onDelete = { onDeleteRecording(entry.filename) }

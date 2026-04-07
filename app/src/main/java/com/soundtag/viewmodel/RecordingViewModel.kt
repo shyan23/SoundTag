@@ -105,6 +105,16 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val _folderPath = MutableStateFlow<List<Pair<String?, String>>>(listOf(null to "My Drive"))
     val folderPath: StateFlow<List<Pair<String?, String>>> = _folderPath.asStateFlow()
 
+    // Recording detail
+    private val _selectedRecording = MutableStateFlow<RecordingEntry?>(null)
+    val selectedRecording: StateFlow<RecordingEntry?> = _selectedRecording.asStateFlow()
+
+    private val _selectedRecordingJson = MutableStateFlow<Map<String, Any?>?>(null)
+    val selectedRecordingJson: StateFlow<Map<String, Any?>?> = _selectedRecordingJson.asStateFlow()
+
+    private val _showRecordingDetail = MutableStateFlow(false)
+    val showRecordingDetail: StateFlow<Boolean> = _showRecordingDetail.asStateFlow()
+
     // Dashboard
     private val _showDashboard = MutableStateFlow(false)
     val showDashboard: StateFlow<Boolean> = _showDashboard.asStateFlow()
@@ -210,6 +220,42 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         _totalCount.value = repo.getTotalCount()
         _labelCounts.value = repo.getCountByLabel()
         _totalDuration.value = repo.getTotalDuration()
+    }
+
+    fun openRecordingDetail(entry: RecordingEntry, context: Context) {
+        _selectedRecording.value = entry
+        _showRecordingDetail.value = true
+        viewModelScope.launch {
+            val jsonStr = repo.getJsonForRecording(context, entry.filename)
+            if (jsonStr != null) {
+                try {
+                    val obj = org.json.JSONObject(jsonStr)
+                    _selectedRecordingJson.value = jsonToMap(obj)
+                } catch (_: Exception) {
+                    _selectedRecordingJson.value = null
+                }
+            }
+        }
+    }
+
+    fun closeRecordingDetail() {
+        audioPlayer.stop()
+        _showRecordingDetail.value = false
+        _selectedRecording.value = null
+        _selectedRecordingJson.value = null
+    }
+
+    private fun jsonToMap(obj: org.json.JSONObject): Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+        obj.keys().forEach { key ->
+            val value = obj.get(key)
+            map[key] = when (value) {
+                is org.json.JSONObject -> jsonToMap(value)
+                org.json.JSONObject.NULL -> null
+                else -> value
+            }
+        }
+        return map
     }
 
     fun syncPending() {

@@ -1,7 +1,9 @@
 package com.soundtag.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,9 +46,11 @@ private val noiseEmoji = mapOf(
 )
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun RecordingRow(
     entry: RecordingEntry,
     isPlaying: Boolean = false,
+    onTap: (() -> Unit)? = null,
     onPlay: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
@@ -74,7 +78,10 @@ fun RecordingRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
-                .clickable { expanded = !expanded }
+                .combinedClickable(
+                    onClick = { onTap?.invoke() },
+                    onLongClick = { expanded = !expanded }
+                )
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)

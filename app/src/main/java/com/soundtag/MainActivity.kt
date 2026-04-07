@@ -42,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soundtag.service.RecordingState
 import com.soundtag.ui.annotate.AnnotateSheetContent
 import com.soundtag.ui.dashboard.DashboardScreen
+import com.soundtag.ui.dashboard.RecordingDetailScreen
 import com.soundtag.ui.record.RecordScreen
 import com.soundtag.ui.setup.FolderPickerScreen
 import com.soundtag.ui.setup.SetupScreen
@@ -91,6 +92,9 @@ class MainActivity : ComponentActivity() {
                 val labelCounts by vm.labelCounts.collectAsState()
                 val totalDuration by vm.totalDuration.collectAsState()
                 val currentDb by vm.currentDb.collectAsState()
+                val showRecordingDetail by vm.showRecordingDetail.collectAsState()
+                val selectedRecording by vm.selectedRecording.collectAsState()
+                val selectedRecordingJson by vm.selectedRecordingJson.collectAsState()
                 val playbackState by vm.audioPlayer.state.collectAsState()
 
                 val snackbarHostState = remember { SnackbarHostState() }
@@ -146,6 +150,17 @@ class MainActivity : ComponentActivity() {
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                         when {
+                            showRecordingDetail && selectedRecording != null -> {
+                                RecordingDetailScreen(
+                                    entry = selectedRecording!!,
+                                    jsonFields = selectedRecordingJson,
+                                    isPlaying = playbackState.isPlaying,
+                                    playbackPositionMs = playbackState.positionMs,
+                                    playbackDurationMs = playbackState.durationMs,
+                                    onTogglePlayback = { vm.playDashboardRecording(context, selectedRecording!!.filename) },
+                                    onBack = { vm.closeRecordingDetail() }
+                                )
+                            }
                             showFolderPicker -> {
                                 FolderPickerScreen(
                                     folders = driveFolders,
@@ -229,6 +244,7 @@ class MainActivity : ComponentActivity() {
                                     onRetryUpload = { filename -> vm.retryUpload(filename) },
                                     onDeleteRecording = { filename -> vm.deleteRecording(filename) },
                                     onPlayRecording = { filename -> vm.playDashboardRecording(context, filename) },
+                                    onOpenDetail = { entry -> vm.openRecordingDetail(entry, context) },
                                     playingFilename = if (playbackState.isPlaying) playbackState.currentFile else "",
                                     onSettings = {
                                         vm.closeDashboard()

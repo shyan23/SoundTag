@@ -15,6 +15,7 @@ SoundTag is an Android app for collecting and annotating urban noise audio data.
 <p align="center">
   <img src="images/annotate.png" width="180" />
   <img src="images/dashboard.png" width="180" />
+  <img src="images/recording-detail.png" width="180" />
   <img src="images/folder-picker.png" width="180" />
 </p>
 
@@ -60,6 +61,7 @@ SoundTag is an Android app for collecting and annotating urban noise audio data.
 - Recording locations with Google Maps links
 - Retry failed uploads, delete recordings
 - Audio playback from history
+- Tap recording → full detail screen with JSON metadata table
 
 ## JSON Output Schema
 
