@@ -43,6 +43,7 @@ fun SetupScreen(
     onNameChange: (String) -> Unit,
     onIdChange: (String) -> Unit,
     onConnectDrive: () -> Unit,
+    onSignOutDrive: () -> Unit,
     onChooseFolder: () -> Unit,
     onClearFolder: () -> Unit,
     onStartCollecting: () -> Unit,
@@ -195,6 +196,19 @@ fun SetupScreen(
                         color = if (isDriveConnected) SoundTagSuccess else SoundTagTextSecondary
                     )
                 }
+            }
+
+            // Sign out (only when Drive connected)
+            if (isDriveConnected) {
+                Text(
+                    text = "Sign out from Drive",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = SoundTagError,
+                    modifier = Modifier
+                        .clickable(onClick = onSignOutDrive)
+                        .padding(vertical = 4.dp)
+                )
             }
 
             // Folder picker (only when Drive connected)

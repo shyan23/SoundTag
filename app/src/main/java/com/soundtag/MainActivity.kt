@@ -156,6 +156,7 @@ class MainActivity : ComponentActivity() {
                                     onNameChange = { vm.updateName(it) },
                                     onIdChange = { vm.updateId(it) },
                                     onConnectDrive = { driveSignInLauncher.launch(vm.getSignInIntent()) },
+                                    onSignOutDrive = { vm.signOutDrive() },
                                     onChooseFolder = { vm.openFolderPicker() },
                                     onClearFolder = { vm.clearCustomFolder() },
                                     onStartCollecting = { vm.completeSetup() }

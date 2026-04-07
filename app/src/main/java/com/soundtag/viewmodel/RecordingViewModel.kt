@@ -183,6 +183,13 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         _isDriveConnected.value = success
     }
 
+    fun signOutDrive() {
+        DriveUploader.signOut(getApplication()) {
+            _isDriveConnected.value = false
+            clearCustomFolder()
+        }
+    }
+
     // Recording
     fun startRecording(context: Context) {
         val intent = Intent(context, RecordingService::class.java).apply {

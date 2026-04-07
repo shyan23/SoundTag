@@ -56,6 +56,14 @@ object DriveUploader {
         return GoogleSignIn.getLastSignedInAccount(context)?.email
     }
 
+    fun signOut(context: Context, onComplete: () -> Unit) {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestScopes(Scope(DriveScopes.DRIVE))
+            .build()
+        GoogleSignIn.getClient(context, gso).signOut().addOnCompleteListener { onComplete() }
+    }
+
     suspend fun listFolders(context: Context): List<DriveFolder> = withContext(Dispatchers.IO) {
         try {
             val driveService = buildDriveService(context) ?: return@withContext emptyList()
