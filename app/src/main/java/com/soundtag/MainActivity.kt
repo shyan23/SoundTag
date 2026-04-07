@@ -1,39 +1,197 @@
 package com.soundtag
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.soundtag.service.RecordingState
+import com.soundtag.ui.annotate.AnnotateSheetContent
+import com.soundtag.ui.record.RecordScreen
+import com.soundtag.ui.theme.SoundTagBackground
+import com.soundtag.ui.theme.SoundTagSurface
+import com.soundtag.ui.theme.SoundTagSurfaceVariant
+import com.soundtag.ui.theme.SoundTagTextPrimary
+import com.soundtag.ui.theme.SoundTagTextSecondary
+import com.soundtag.ui.theme.SoundTagTextTertiary
 import com.soundtag.ui.theme.SoundTagTheme
+import com.soundtag.viewmodel.RecordingViewModel
+import com.soundtag.viewmodel.UiState
+import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
+
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             SoundTagTheme {
+                val vm: RecordingViewModel = viewModel()
+                val context = LocalContext.current
+                val uiState by vm.uiState.collectAsState()
+                val serviceState by vm.serviceState.collectAsState()
+                val elapsed by vm.elapsedSeconds.collectAsState()
+                val annotation by vm.annotation.collectAsState()
+                val hasPerms by vm.hasPermissions.collectAsState()
+
+                // Permission launcher
+                val permLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestMultiplePermissions()
+                ) { results ->
+                    val allGranted = results.values.all { it }
+                    vm.setPermissionsGranted(allGranted)
+                }
+
+                // Check permissions on launch
+                LaunchedEffect(Unit) {
+                    val perms = arrayOf(
+                        Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    )
+                    val allGranted = perms.all {
+                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                    }
+                    if (allGranted) {
+                        vm.setPermissionsGranted(true)
+                    } else {
+                        permLauncher.launch(perms)
+                    }
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = SoundTagBackground
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "SoundTag",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.primary
+                    if (!hasPerms) {
+                        // Permission denied state
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SoundTagSurface, RoundedCornerShape(16.dp))
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "Permissions Required",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SoundTagTextPrimary
+                                )
+                                Text(
+                                    text = "SoundTag needs microphone and location access to record audio with GPS metadata.",
+                                    fontSize = 14.sp,
+                                    color = SoundTagTextSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "Please grant permissions in Settings.",
+                                    fontSize = 13.sp,
+                                    color = SoundTagTextTertiary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        // Extract location from service state
+                        val location = (serviceState as? RecordingState.Recording)?.location
+
+                        RecordScreen(
+                            isRecording = uiState is UiState.Recording || serviceState is RecordingState.Recording,
+                            elapsedSeconds = elapsed,
+                            location = location,
+                            onToggleRecording = {
+                                when (uiState) {
+                                    is UiState.Recording -> vm.stopRecording(context)
+                                    is UiState.Idle -> vm.startRecording(context)
+                                    else -> {}
+                                }
+                            }
                         )
+
+                        // Annotation bottom sheet
+                        if (uiState is UiState.Annotating) {
+                            val annotatingState = uiState as UiState.Annotating
+                            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+                            ModalBottomSheet(
+                                onDismissRequest = { vm.dismissAnnotation() },
+                                sheetState = sheetState,
+                                containerColor = SoundTagSurfaceVariant,
+                                dragHandle = null
+                            ) {
+                                // Custom handle
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 12.dp, bottom = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .height(4.dp)
+                                            .fillMaxWidth(0.1f)
+                                            .background(
+                                                com.soundtag.ui.theme.SoundTagBorder,
+                                                RoundedCornerShape(2.dp)
+                                            )
+                                    )
+                                }
+
+                                AnnotateSheetContent(
+                                    annotation = annotation,
+                                    durationSeconds = annotatingState.durationSeconds,
+                                    recordingTime = annotatingState.startTime.format(
+                                        DateTimeFormatter.ofPattern("h:mm a")
+                                    ),
+                                    location = annotatingState.location,
+                                    onAnnotationChange = { vm.updateAnnotation(it) },
+                                    onSave = { vm.saveRecording() }
+                                )
+                            }
+                        }
                     }
                 }
             }

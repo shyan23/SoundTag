@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.activity.compose)
