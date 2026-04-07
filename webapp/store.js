@@ -15,6 +15,19 @@ export function saveRecordings(list) {
   localStorage.setItem(KEY_RECORDINGS, JSON.stringify(list));
 }
 
+export function updateRecordingStatus(filename, status) {
+  const list = loadRecordings();
+  const r = list.find(x => x.filename === filename);
+  if (r) { r.status = status; saveRecordings(list); }
+  return list;
+}
+
+export function removeRecording(filename) {
+  const list = loadRecordings().filter(r => r.filename !== filename);
+  saveRecordings(list);
+  return list;
+}
+
 export function addRecording(meta, status) {
   const list = loadRecordings();
   list.unshift({

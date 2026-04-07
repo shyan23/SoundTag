@@ -12,8 +12,10 @@ import {
 } from "./annotate.js";
 import {
   loadRecordings, saveRecordings, addRecording,
+  updateRecordingStatus, removeRecording,
   loadProfile, saveProfile, todayCount,
 } from "./store.js";
+import { putBlob, getBlob, deleteBlob, hasBlob } from "./db.js";
 import { GOOGLE_CLIENT_ID } from "./config.js";
 
 const $ = id => document.getElementById(id);
@@ -259,13 +261,26 @@ function currentMetadata() {
 async function handleSave(withUpload) {
   if (!lastRecording) return toast("No recording", "error");
   const meta = currentMetadata();
+
+  // Always persist the blob to IndexedDB so it survives reloads.
+  try {
+    await putBlob(meta.filename, lastRecording.blob, lastRecording.mimeType);
+  } catch (e) {
+    toast("Could not persist blob: " + e.message, "error");
+  }
+
+  // Also trigger browser downloads (audio + JSON sidecar).
   saveLocally(lastRecording.blob, meta);
+
   let status = "Local";
   if (withUpload && GOOGLE_CLIENT_ID) {
     toast("Uploading…");
     const res = await uploadRecording(lastRecording.blob, meta);
     status = res.ok ? "Uploaded" : "Failed";
     toast(res.ok ? "Uploaded" : "Upload failed: " + res.error, res.ok ? "success" : "error");
+  } else if (withUpload && !GOOGLE_CLIENT_ID) {
+    status = "Pending";
+    toast("Saved (Drive not configured)", "success");
   } else {
     toast("Saved locally", "success");
   }
@@ -317,10 +332,13 @@ function renderDashboard() {
 function recordingRow(r) {
   const row = document.createElement("div");
   row.className = "rec-row";
+
+  const top = document.createElement("div");
+  top.className = "rec-row-top";
   const emoji = document.createElement("div");
   emoji.className = "rec-emoji";
   emoji.textContent = LABELS.find(l => l.id === r.label)?.emoji || "🎙️";
-  row.appendChild(emoji);
+  top.appendChild(emoji);
 
   const col = document.createElement("div");
   col.className = "rec-col";
@@ -332,7 +350,7 @@ function recordingRow(r) {
   const time = (r.started_at_local || "").slice(11, 16);
   m.textContent = `${time} · ${r.duration_seconds || 0}s`;
   col.append(n, m);
-  row.appendChild(col);
+  top.appendChild(col);
 
   const badge = document.createElement("span");
   const statusClass = {
@@ -341,8 +359,66 @@ function recordingRow(r) {
   }[r.status] || "pill-muted";
   badge.className = "pill " + statusClass;
   badge.textContent = r.status;
-  row.appendChild(badge);
+  top.appendChild(badge);
+  row.appendChild(top);
+
+  // Actions row — retry for Pending/Failed, delete for any.
+  const actions = document.createElement("div");
+  actions.className = "rec-actions";
+
+  if (r.status === "Pending" || r.status === "Failed") {
+    const retry = document.createElement("button");
+    retry.className = "row-btn row-btn-accent";
+    retry.textContent = "Retry Upload";
+    retry.addEventListener("click", e => { e.stopPropagation(); retryUpload(r); });
+    actions.appendChild(retry);
+  }
+
+  const dl = document.createElement("button");
+  dl.className = "row-btn";
+  dl.textContent = "Download";
+  dl.addEventListener("click", async e => {
+    e.stopPropagation();
+    const entry = await getBlob(r.filename);
+    if (!entry) return toast("Blob not in cache", "error");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(entry.blob);
+    a.download = r.filename;
+    a.click();
+  });
+  actions.appendChild(dl);
+
+  const del = document.createElement("button");
+  del.className = "row-btn row-btn-error";
+  del.textContent = "Delete";
+  del.addEventListener("click", async e => {
+    e.stopPropagation();
+    await deleteBlob(r.filename);
+    removeRecording(r.filename);
+    renderDashboard();
+    toast("Deleted");
+  });
+  actions.appendChild(del);
+
+  row.appendChild(actions);
   return row;
+}
+
+async function retryUpload(r) {
+  const entry = await getBlob(r.filename);
+  if (!entry) {
+    toast("Blob not in cache — re-record to upload", "error");
+    updateRecordingStatus(r.filename, "Failed");
+    renderDashboard();
+    return;
+  }
+  if (!GOOGLE_CLIENT_ID) return toast("Drive not configured", "error");
+  toast("Uploading…");
+  const meta = { ...r };
+  const res = await uploadRecording(entry.blob, meta);
+  updateRecordingStatus(r.filename, res.ok ? "Uploaded" : "Failed");
+  toast(res.ok ? "Uploaded" : "Upload failed: " + res.error, res.ok ? "success" : "error");
+  renderDashboard();
 }
 
 function renderBarChart(list) {
@@ -381,10 +457,23 @@ function renderBarChart(list) {
 }
 
 async function syncAllPending() {
+  if (!GOOGLE_CLIENT_ID) return toast("Drive not configured", "error");
   const list = loadRecordings();
   const pending = list.filter(r => r.status === "Pending" || r.status === "Failed");
   if (pending.length === 0) return toast("Nothing to sync");
-  toast(`${pending.length} pending — blobs not persisted across reloads`, "error");
+
+  toast(`Syncing ${pending.length}…`);
+  let ok = 0, skipped = 0, failed = 0;
+  for (const r of pending) {
+    const entry = await getBlob(r.filename);
+    if (!entry) { skipped++; updateRecordingStatus(r.filename, "Failed"); continue; }
+    const res = await uploadRecording(entry.blob, r);
+    if (res.ok) { ok++; updateRecordingStatus(r.filename, "Uploaded"); }
+    else { failed++; updateRecordingStatus(r.filename, "Failed"); }
+  }
+  renderDashboard();
+  toast(`Synced ${ok}/${pending.length}` + (skipped ? ` · ${skipped} missing blob` : ""),
+    failed ? "error" : "success");
 }
 
 async function onUploadExisting() {
