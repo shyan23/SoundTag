@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
                 val labelCounts by vm.labelCounts.collectAsState()
                 val totalDuration by vm.totalDuration.collectAsState()
                 val currentDb by vm.currentDb.collectAsState()
+                val dbHistory by vm.dbHistory.collectAsState()
                 val showRecordingDetail by vm.showRecordingDetail.collectAsState()
                 val selectedRecording by vm.selectedRecording.collectAsState()
                 val selectedRecordingJson by vm.selectedRecordingJson.collectAsState()
@@ -291,6 +292,7 @@ class MainActivity : ComponentActivity() {
                                     annotatorId = annotatorId,
                                     todayCount = todayCount,
                                     currentDb = currentDb,
+                                    dbHistory = dbHistory,
                                     onToggleRecording = {
                                         when (uiState) {
                                             is UiState.Recording -> vm.stopRecording(context)

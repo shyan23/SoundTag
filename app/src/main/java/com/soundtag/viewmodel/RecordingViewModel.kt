@@ -63,6 +63,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     val serviceState: StateFlow<RecordingState> = RecordingService.state
     val elapsedSeconds: StateFlow<Long> = RecordingService.elapsedSeconds
     val currentDb: StateFlow<Float> = RecordingService.currentDb
+    val dbHistory: StateFlow<List<Float>> = RecordingService.dbHistory
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()

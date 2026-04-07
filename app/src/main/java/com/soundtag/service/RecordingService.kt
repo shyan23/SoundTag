@@ -53,6 +53,11 @@ class RecordingService : LifecycleService() {
         private val _dbStats = MutableStateFlow<DbStats?>(null)
         val dbStats: StateFlow<DbStats?> = _dbStats.asStateFlow()
 
+        private val _dbHistory = MutableStateFlow<List<Float>>(emptyList())
+        val dbHistory: StateFlow<List<Float>> = _dbHistory.asStateFlow()
+
+        private const val MAX_HISTORY = 60 // show last 60 seconds
+
         const val ACTION_START = "com.soundtag.ACTION_START"
         const val ACTION_STOP = "com.soundtag.ACTION_STOP"
 
@@ -144,6 +149,7 @@ class RecordingService : LifecycleService() {
                 _elapsedSeconds.value = 0L
                 _currentDb.value = 0f
                 _dbStats.value = null
+                _dbHistory.value = emptyList()
                 dbSamples.clear()
                 rawDbSamples.clear()
                 rollingMinDb = Float.MAX_VALUE
@@ -193,6 +199,7 @@ class RecordingService : LifecycleService() {
         _state.value = RecordingState.Idle
         _elapsedSeconds.value = 0L
         _currentDb.value = 0f
+        _dbHistory.value = emptyList()
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -220,6 +227,13 @@ class RecordingService : LifecycleService() {
 
                 _currentDb.value = calibratedDb
                 if (calibratedDb > 0f) dbSamples.add(calibratedDb)
+
+                // Append to history (keep last MAX_HISTORY points)
+                val history = _dbHistory.value.toMutableList()
+                history.add(calibratedDb)
+                if (history.size > MAX_HISTORY) history.removeAt(0)
+                _dbHistory.value = history
+
                 val displayDb = calibratedDb
 
                 // Update notification
