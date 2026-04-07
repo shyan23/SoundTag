@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.soundtag.data.AnnotationData
+import com.soundtag.data.DriveFolder
 import com.soundtag.data.DriveUploader
 import com.soundtag.data.FileSaver
 import com.soundtag.data.LocationFix
@@ -80,6 +81,15 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val _showSetup = MutableStateFlow(!prefs.isSetupComplete)
     val showSetup: StateFlow<Boolean> = _showSetup.asStateFlow()
 
+    private val _customFolderName = MutableStateFlow(prefs.customDriveFolderName)
+    val customFolderName: StateFlow<String> = _customFolderName.asStateFlow()
+
+    private val _driveFolders = MutableStateFlow<List<DriveFolder>?>(null)
+    val driveFolders: StateFlow<List<DriveFolder>?> = _driveFolders.asStateFlow()
+
+    private val _showFolderPicker = MutableStateFlow(false)
+    val showFolderPicker: StateFlow<Boolean> = _showFolderPicker.asStateFlow()
+
     // Dashboard
     private val _showDashboard = MutableStateFlow(false)
     val showDashboard: StateFlow<Boolean> = _showDashboard.asStateFlow()
@@ -120,6 +130,30 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun openSetup() { _showSetup.value = true }
+
+    // Folder picker
+    fun openFolderPicker() {
+        _driveFolders.value = null // show loading
+        _showFolderPicker.value = true
+        viewModelScope.launch {
+            _driveFolders.value = DriveUploader.listFolders(getApplication())
+        }
+    }
+
+    fun closeFolderPicker() { _showFolderPicker.value = false }
+
+    fun selectFolder(id: String, name: String) {
+        prefs.customDriveFolderId = id
+        prefs.customDriveFolderName = name
+        _customFolderName.value = name
+        _showFolderPicker.value = false
+    }
+
+    fun clearCustomFolder() {
+        prefs.customDriveFolderId = ""
+        prefs.customDriveFolderName = ""
+        _customFolderName.value = ""
+    }
 
     // Dashboard
     fun openDashboard() {
@@ -208,6 +242,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             )
 
             // Upload to Drive first if connected (before temp file is deleted)
+            val customFolderId = prefs.customDriveFolderId.ifEmpty { null }
             var uploaded = false
             if (_isDriveConnected.value) {
                 val result = DriveUploader.uploadRecording(
@@ -215,14 +250,15 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     audioFile = state.tempFile,
                     jsonContent = json,
                     filename = filename,
-                    annotatorId = aid
+                    annotatorId = aid,
+                    customFolderId = customFolderId
                 )
                 uploaded = result is UploadResult.Success
             }
 
             // Queue for retry if not uploaded and Drive is configured
             if (!uploaded && _isDriveConnected.value && state.tempFile.exists()) {
-                uploadQueue.queueForUpload(state.tempFile, json, filename, aid)
+                uploadQueue.queueForUpload(state.tempFile, json, filename, aid, customFolderId ?: "")
                 UploadWorker.enqueue(context)
             }
 

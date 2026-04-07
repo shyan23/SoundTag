@@ -38,7 +38,8 @@ class UploadWorker(
                 audioFile = upload.audioFile,
                 jsonContent = jsonContent,
                 filename = upload.filename,
-                annotatorId = upload.annotatorId
+                annotatorId = upload.annotatorId,
+                customFolderId = upload.customFolderId.ifEmpty { null }
             )
 
             when (result) {

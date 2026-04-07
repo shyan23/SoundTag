@@ -46,6 +46,7 @@ import com.soundtag.service.RecordingState
 import com.soundtag.ui.annotate.AnnotateSheetContent
 import com.soundtag.ui.dashboard.DashboardScreen
 import com.soundtag.ui.record.RecordScreen
+import com.soundtag.ui.setup.FolderPickerDialog
 import com.soundtag.ui.setup.SetupScreen
 import com.soundtag.ui.theme.SoundTagBackground
 import com.soundtag.ui.theme.SoundTagBorder
@@ -84,6 +85,9 @@ class MainActivity : ComponentActivity() {
                 val annotatorName by vm.annotatorName.collectAsState()
                 val annotatorId by vm.annotatorId.collectAsState()
                 val isDriveConnected by vm.isDriveConnected.collectAsState()
+                val customFolderName by vm.customFolderName.collectAsState()
+                val showFolderPicker by vm.showFolderPicker.collectAsState()
+                val driveFolders by vm.driveFolders.collectAsState()
                 val todayCount by vm.todayCount.collectAsState()
                 val recordings by vm.recordings.collectAsState()
                 val totalCount by vm.totalCount.collectAsState()
@@ -148,11 +152,26 @@ class MainActivity : ComponentActivity() {
                                     name = annotatorName,
                                     annotatorId = annotatorId,
                                     isDriveConnected = isDriveConnected,
+                                    customFolderName = customFolderName,
                                     onNameChange = { vm.updateName(it) },
                                     onIdChange = { vm.updateId(it) },
                                     onConnectDrive = { driveSignInLauncher.launch(vm.getSignInIntent()) },
+                                    onChooseFolder = { vm.openFolderPicker() },
+                                    onClearFolder = { vm.clearCustomFolder() },
                                     onStartCollecting = { vm.completeSetup() }
                                 )
+
+                                if (showFolderPicker) {
+                                    FolderPickerDialog(
+                                        folders = driveFolders,
+                                        onSelect = { folder -> vm.selectFolder(folder.id, folder.name) },
+                                        onUseDefault = {
+                                            vm.clearCustomFolder()
+                                            vm.closeFolderPicker()
+                                        },
+                                        onDismiss = { vm.closeFolderPicker() }
+                                    )
+                                }
                             }
                             showDashboard -> {
                                 DashboardScreen(

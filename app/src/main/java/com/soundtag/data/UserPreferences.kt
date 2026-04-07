@@ -18,4 +18,12 @@ class UserPreferences(application: Application) {
     var isSetupComplete: Boolean
         get() = prefs.getBoolean("setup_complete", false)
         set(value) = prefs.edit().putBoolean("setup_complete", value).apply()
+
+    var customDriveFolderId: String
+        get() = prefs.getString("custom_drive_folder_id", "") ?: ""
+        set(value) = prefs.edit().putString("custom_drive_folder_id", value).apply()
+
+    var customDriveFolderName: String
+        get() = prefs.getString("custom_drive_folder_name", "") ?: ""
+        set(value) = prefs.edit().putString("custom_drive_folder_name", value).apply()
 }

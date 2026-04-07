@@ -3,7 +3,6 @@ package com.soundtag.data
 import android.content.Context
 import android.content.Intent
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
@@ -20,6 +19,12 @@ sealed class UploadResult {
     data object Success : UploadResult()
     data class Failed(val message: String) : UploadResult()
 }
+
+data class DriveFolder(
+    val id: String,
+    val name: String,
+    val isShared: Boolean
+)
 
 object DriveUploader {
 
@@ -51,23 +56,54 @@ object DriveUploader {
         return GoogleSignIn.getLastSignedInAccount(context)?.email
     }
 
+    suspend fun listFolders(context: Context): List<DriveFolder> = withContext(Dispatchers.IO) {
+        try {
+            val driveService = buildDriveService(context) ?: return@withContext emptyList()
+
+            val ownFolders = driveService.files().list()
+                .setQ("mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false")
+                .setSpaces("drive")
+                .setFields("files(id, name)")
+                .setPageSize(50)
+                .execute()
+                .files
+                ?.map { DriveFolder(it.id, it.name, isShared = false) }
+                ?: emptyList()
+
+            val sharedFolders = driveService.files().list()
+                .setQ("mimeType='application/vnd.google-apps.folder' and sharedWithMe=true and trashed=false")
+                .setSpaces("drive")
+                .setFields("files(id, name)")
+                .setPageSize(50)
+                .execute()
+                .files
+                ?.map { DriveFolder(it.id, it.name, isShared = true) }
+                ?: emptyList()
+
+            sharedFolders + ownFolders
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     suspend fun uploadRecording(
         context: Context,
         audioFile: File,
         jsonContent: String,
         filename: String,
-        annotatorId: String
+        annotatorId: String,
+        customFolderId: String? = null
     ): UploadResult = withContext(Dispatchers.IO) {
         try {
             val driveService = buildDriveService(context)
                 ?: return@withContext UploadResult.Failed("Not signed in")
 
-            val folderId = findOrCreateFolder(driveService, annotatorId)
+            val targetFolderId = resolveTargetFolder(driveService, annotatorId, customFolderId)
 
             // Upload audio
             val audioMetadata = com.google.api.services.drive.model.File().apply {
                 name = "$filename.m4a"
-                parents = listOf(folderId)
+                parents = listOf(targetFolderId)
             }
             val audioContent = FileContent("audio/mp4", audioFile)
             driveService.files().create(audioMetadata, audioContent)
@@ -79,7 +115,7 @@ object DriveUploader {
             jsonFile.writeText(jsonContent)
             val jsonMetadata = com.google.api.services.drive.model.File().apply {
                 name = "$filename.json"
-                parents = listOf(folderId)
+                parents = listOf(targetFolderId)
             }
             val jsonFileContent = FileContent("application/json", jsonFile)
             driveService.files().create(jsonMetadata, jsonFileContent)
@@ -93,6 +129,17 @@ object DriveUploader {
         }
     }
 
+    private fun resolveTargetFolder(driveService: Drive, annotatorId: String, customFolderId: String?): String {
+        val parentId = if (!customFolderId.isNullOrEmpty()) {
+            // Custom folder: create {annotatorId}/ inside it
+            customFolderId
+        } else {
+            // Default: create SoundTag/ in root, then {annotatorId}/ inside
+            findOrCreateSingleFolder(driveService, APP_NAME, "root")
+        }
+        return findOrCreateSingleFolder(driveService, annotatorId, parentId)
+    }
+
     private fun buildDriveService(context: Context): Drive? {
         val account = GoogleSignIn.getLastSignedInAccount(context) ?: return null
         val credential = GoogleAccountCredential.usingOAuth2(
@@ -104,13 +151,6 @@ object DriveUploader {
             GsonFactory.getDefaultInstance(),
             credential
         ).setApplicationName(APP_NAME).build()
-    }
-
-    private fun findOrCreateFolder(driveService: Drive, annotatorId: String): String {
-        // Find or create SoundTag root folder
-        val rootFolderId = findOrCreateSingleFolder(driveService, APP_NAME, "root")
-        // Find or create annotator subfolder
-        return findOrCreateSingleFolder(driveService, annotatorId, rootFolderId)
     }
 
     private fun findOrCreateSingleFolder(driveService: Drive, name: String, parentId: String): String {

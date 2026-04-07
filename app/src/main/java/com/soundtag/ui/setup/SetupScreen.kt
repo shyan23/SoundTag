@@ -39,9 +39,12 @@ fun SetupScreen(
     name: String,
     annotatorId: String,
     isDriveConnected: Boolean,
+    customFolderName: String,
     onNameChange: (String) -> Unit,
     onIdChange: (String) -> Unit,
     onConnectDrive: () -> Unit,
+    onChooseFolder: () -> Unit,
+    onClearFolder: () -> Unit,
     onStartCollecting: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -190,6 +193,48 @@ fun SetupScreen(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isDriveConnected) SoundTagSuccess else SoundTagTextSecondary
+                    )
+                }
+            }
+
+            // Folder picker (only when Drive connected)
+            if (isDriveConnected) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SoundTagSurface)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "\uD83D\uDCC1", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = customFolderName.ifEmpty { "Default (SoundTag/)" },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (customFolderName.isEmpty()) SoundTagTextTertiary else SoundTagTextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (customFolderName.isNotEmpty()) {
+                        Text(
+                            text = "\u2715",
+                            fontSize = 14.sp,
+                            color = SoundTagTextSecondary,
+                            modifier = Modifier
+                                .clickable(onClick = onClearFolder)
+                                .padding(8.dp)
+                        )
+                    }
+                    Text(
+                        text = if (customFolderName.isEmpty()) "Choose" else "Change",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SoundTagGreen,
+                        modifier = Modifier
+                            .clickable(onClick = onChooseFolder)
+                            .padding(4.dp)
                     )
                 }
             }
