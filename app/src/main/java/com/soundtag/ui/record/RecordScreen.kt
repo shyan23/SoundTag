@@ -41,7 +41,6 @@ fun RecordScreen(
     annotatorId: String,
     todayCount: Int,
     currentDb: Float,
-    isCalibrating: Boolean,
     onToggleRecording: () -> Unit,
     onDashboardTap: () -> Unit,
     modifier: Modifier = Modifier
@@ -123,13 +122,7 @@ fun RecordScreen(
                                 fontFamily = FontFamily.Monospace,
                                 color = SoundTagTextPrimary
                             )
-                            if (isCalibrating) {
-                                Text(
-                                    text = "Calibrating\u2026",
-                                    fontSize = 12.sp,
-                                    color = SoundTagTextTertiary
-                                )
-                            } else if (currentDb > 0) {
+                            if (currentDb > 0) {
                                 val dbColor = when {
                                     currentDb >= 25 -> SoundTagError
                                     currentDb >= 10 -> SoundTagWarning
