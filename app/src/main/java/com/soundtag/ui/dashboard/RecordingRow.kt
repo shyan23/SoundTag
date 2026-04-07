@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -45,6 +46,8 @@ private val noiseEmoji = mapOf(
 @Composable
 fun RecordingRow(
     entry: RecordingEntry,
+    isPlaying: Boolean = false,
+    onPlay: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -108,6 +111,21 @@ fun RecordingRow(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (onPlay != null) {
+                    Text(
+                        text = if (isPlaying) "\u23F8 Pause" else "\u25B6 Play",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SoundTagGreen,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                onPlay()
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 if (canRetry && onRetry != null) {
                     Text(
                         text = "Retry Upload",

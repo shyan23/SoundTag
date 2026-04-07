@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
                 val totalCount by vm.totalCount.collectAsState()
                 val labelCounts by vm.labelCounts.collectAsState()
                 val totalDuration by vm.totalDuration.collectAsState()
+                val playbackState by vm.audioPlayer.state.collectAsState()
 
                 val snackbarHostState = remember { SnackbarHostState() }
 
@@ -188,6 +189,10 @@ class MainActivity : ComponentActivity() {
                                         onAnnotationChange = { vm.updateAnnotation(it) },
                                         onSave = { vm.saveRecording(context) },
                                         onBack = { if (uiState !is UiState.Saving) vm.dismissAnnotation() },
+                                        isPlaying = playbackState.isPlaying,
+                                        playbackPositionMs = playbackState.positionMs,
+                                        playbackDurationMs = playbackState.durationMs,
+                                        onTogglePlayback = { vm.playAnnotationAudio() },
                                         isSaving = uiState is UiState.Saving,
                                         isDriveConnected = isDriveConnected,
                                         annotatorId = annotatorId
@@ -222,6 +227,8 @@ class MainActivity : ComponentActivity() {
                                     onSyncPending = { vm.syncPending() },
                                     onRetryUpload = { filename -> vm.retryUpload(filename) },
                                     onDeleteRecording = { filename -> vm.deleteRecording(filename) },
+                                    onPlayRecording = { filename -> vm.playDashboardRecording(context, filename) },
+                                    playingFilename = if (playbackState.isPlaying) playbackState.currentFile else "",
                                     onSettings = {
                                         vm.closeDashboard()
                                         vm.openSetup()

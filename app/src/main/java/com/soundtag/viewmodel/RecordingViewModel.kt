@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.soundtag.data.AnnotationData
+import com.soundtag.data.AudioPlayer
 import com.soundtag.data.DriveFolder
 import com.soundtag.data.DriveUploader
 import com.soundtag.data.FileSaver
@@ -13,6 +14,7 @@ import com.soundtag.data.LocationFix
 import com.soundtag.data.MetadataWriter
 import com.soundtag.data.RecordingEntry
 import com.soundtag.data.RecordingRepository
+import com.soundtag.data.PlaybackState
 import com.soundtag.data.UploadQueueManager
 import com.soundtag.data.UploadResult
 import com.soundtag.data.UserPreferences
@@ -53,6 +55,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val prefs = UserPreferences(application)
     private val repo = RecordingRepository(application)
     private val uploadQueue = UploadQueueManager(application)
+    val audioPlayer = AudioPlayer()
 
     val serviceState: StateFlow<RecordingState> = RecordingService.state
     val elapsedSeconds: StateFlow<Long> = RecordingService.elapsedSeconds
@@ -215,6 +218,27 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         UploadWorker.enqueue(getApplication())
     }
 
+    fun playAnnotationAudio() {
+        val state = _uiState.value
+        if (state is UiState.Annotating && state.tempFile.exists()) {
+            audioPlayer.playFile(state.tempFile, viewModelScope)
+        }
+    }
+
+    fun playDashboardRecording(context: Context, filename: String) {
+        // Try to find the file in Music/SoundTag/
+        val uri = android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val selection = "${android.provider.MediaStore.Audio.Media.DISPLAY_NAME} = ?"
+        val cursor = context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.Audio.Media._ID), selection, arrayOf("$filename.m4a"), null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val id = it.getLong(0)
+                val contentUri = android.content.ContentUris.withAppendedId(uri, id)
+                audioPlayer.playUri(context, contentUri, filename, viewModelScope)
+            }
+        }
+    }
+
     fun deleteRecording(filename: String) {
         repo.deleteRecording(filename)
         uploadQueue.removePending(filename)
@@ -282,6 +306,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             "misc_${state.startTime.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))}"
         }
 
+        audioPlayer.stop()
         _uiState.value = UiState.Saving(
             startTime = state.startTime,
             location = state.location,
@@ -358,7 +383,13 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun dismissAnnotation() {
+        audioPlayer.stop()
         _annotation.value = AnnotationData()
         _uiState.value = UiState.Idle
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        audioPlayer.stop()
     }
 }

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.soundtag.R
 import com.soundtag.data.AnnotationData
 import com.soundtag.data.LocationFix
+import com.soundtag.ui.components.PlaybackBar
 import com.soundtag.ui.components.SoundTagChip
 import com.soundtag.ui.components.SoundTagTextField
 import com.soundtag.ui.components.ToggleGroup
@@ -66,6 +67,10 @@ fun AnnotateSheetContent(
     onAnnotationChange: (AnnotationData) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
+    isPlaying: Boolean = false,
+    playbackPositionMs: Int = 0,
+    playbackDurationMs: Int = 0,
+    onTogglePlayback: () -> Unit = {},
     isSaving: Boolean = false,
     isDriveConnected: Boolean = false,
     annotatorId: String = "",
@@ -129,6 +134,14 @@ fun AnnotateSheetContent(
                         color = SoundTagTextTertiary
                     )
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                // Playback bar
+                PlaybackBar(
+                    isPlaying = isPlaying,
+                    positionMs = playbackPositionMs,
+                    durationMs = playbackDurationMs,
+                    onToggle = onTogglePlayback
+                )
                 Spacer(modifier = Modifier.height(28.dp))
             }
 
