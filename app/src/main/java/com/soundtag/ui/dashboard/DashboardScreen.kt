@@ -67,7 +67,7 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_notification),
+                painter = painterResource(R.drawable.ic_arrow_back),
                 contentDescription = "Back",
                 tint = SoundTagTextPrimary,
                 modifier = Modifier
