@@ -247,13 +247,12 @@ class MainActivity : ComponentActivity() {
                                 if (uiState is UiState.Annotating || uiState is UiState.Saving) {
                                     val annotatingState = uiState as? UiState.Annotating
                                     if (annotatingState != null) {
-                                        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+                                        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                                         ModalBottomSheet(
                                             onDismissRequest = { vm.dismissAnnotation() },
                                             sheetState = sheetState,
                                             containerColor = SoundTagSurfaceVariant,
-                                            dragHandle = null,
-                                            modifier = Modifier.fillMaxHeight(0.6f)
+                                            dragHandle = null
                                         ) {
                                             Column(
                                                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
