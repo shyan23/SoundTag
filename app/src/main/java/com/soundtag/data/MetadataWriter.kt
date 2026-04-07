@@ -55,7 +55,7 @@ object MetadataWriter {
             put("noise_label", annotation.noiseType.ifEmpty { "misc" })
             put("is_noise", annotation.isNoise)
             put("severity", annotation.severity)
-            put("severity_score", severityToScore(annotation.severity))
+            put("severity_score", annotation.severityScore)
             put("environment", annotation.environment)
             put("location_context", annotation.locationContext.ifEmpty { "other" })
         }

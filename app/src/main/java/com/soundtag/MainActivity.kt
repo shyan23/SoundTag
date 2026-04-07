@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,6 +42,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soundtag.service.RecordingState
 import com.soundtag.ui.annotate.AnnotateSheetContent
+import com.soundtag.ui.dashboard.DashboardScreen
 import com.soundtag.ui.record.RecordScreen
 import com.soundtag.ui.setup.SetupScreen
 import com.soundtag.ui.theme.SoundTagBackground
@@ -76,27 +78,26 @@ class MainActivity : ComponentActivity() {
                 val hasPerms by vm.hasPermissions.collectAsState()
                 val saveResult by vm.saveResult.collectAsState()
                 val showSetup by vm.showSetup.collectAsState()
+                val showDashboard by vm.showDashboard.collectAsState()
                 val annotatorName by vm.annotatorName.collectAsState()
                 val annotatorId by vm.annotatorId.collectAsState()
                 val isDriveConnected by vm.isDriveConnected.collectAsState()
+                val todayCount by vm.todayCount.collectAsState()
+                val recordings by vm.recordings.collectAsState()
+                val totalCount by vm.totalCount.collectAsState()
+                val labelCounts by vm.labelCounts.collectAsState()
+                val totalDuration by vm.totalDuration.collectAsState()
 
                 val snackbarHostState = remember { SnackbarHostState() }
 
-                // Permission launcher
                 val permLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
-                ) { results ->
-                    vm.setPermissionsGranted(results.values.all { it })
-                }
+                ) { results -> vm.setPermissionsGranted(results.values.all { it }) }
 
-                // Drive sign-in launcher
                 val driveSignInLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.StartActivityForResult()
-                ) { result ->
-                    vm.handleDriveSignIn(result.data)
-                }
+                ) { result -> vm.handleDriveSignIn(result.data) }
 
-                // Check permissions on launch
                 LaunchedEffect(Unit) {
                     val perms = arrayOf(
                         Manifest.permission.RECORD_AUDIO,
@@ -105,22 +106,15 @@ class MainActivity : ComponentActivity() {
                     val allGranted = perms.all {
                         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
                     }
-                    if (allGranted) {
-                        vm.setPermissionsGranted(true)
-                    } else {
-                        permLauncher.launch(perms)
-                    }
+                    if (allGranted) vm.setPermissionsGranted(true)
+                    else permLauncher.launch(perms)
                 }
 
-                // Snackbar on save result
                 LaunchedEffect(saveResult) {
                     when (val result = saveResult) {
                         is SaveResult.Success -> {
-                            val msg = if (result.uploaded) {
-                                "Saved & uploaded ${result.filename}"
-                            } else {
-                                "Saved ${result.filename}"
-                            }
+                            val msg = if (result.uploaded) "Saved & uploaded ${result.filename}"
+                            else "Saved ${result.filename}"
                             snackbarHostState.showSnackbar(msg)
                             vm.clearSaveResult()
                         }
@@ -146,109 +140,102 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { padding ->
                     Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                        if (showSetup) {
-                            // Setup Screen
-                            SetupScreen(
-                                name = annotatorName,
-                                annotatorId = annotatorId,
-                                isDriveConnected = isDriveConnected,
-                                onNameChange = { vm.updateName(it) },
-                                onIdChange = { vm.updateId(it) },
-                                onConnectDrive = {
-                                    driveSignInLauncher.launch(vm.getSignInIntent())
-                                },
-                                onStartCollecting = { vm.completeSetup() }
-                            )
-                        } else if (!hasPerms) {
-                            // Permission denied
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(32.dp),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
+                        when {
+                            showSetup -> {
+                                SetupScreen(
+                                    name = annotatorName,
+                                    annotatorId = annotatorId,
+                                    isDriveConnected = isDriveConnected,
+                                    onNameChange = { vm.updateName(it) },
+                                    onIdChange = { vm.updateId(it) },
+                                    onConnectDrive = { driveSignInLauncher.launch(vm.getSignInIntent()) },
+                                    onStartCollecting = { vm.completeSetup() }
+                                )
+                            }
+                            showDashboard -> {
+                                DashboardScreen(
+                                    recordings = recordings,
+                                    todayCount = todayCount,
+                                    totalCount = totalCount,
+                                    labelCounts = labelCounts,
+                                    totalDuration = totalDuration,
+                                    isDriveConnected = isDriveConnected,
+                                    onBack = { vm.closeDashboard() },
+                                    onSyncPending = { vm.syncPending() }
+                                )
+                            }
+                            !hasPerms -> {
                                 Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(SoundTagSurface, RoundedCornerShape(16.dp))
-                                        .padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Text(
-                                        text = "Permissions Required",
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoundTagTextPrimary
-                                    )
-                                    Text(
-                                        text = "SoundTag needs microphone and location access to record audio with GPS metadata.",
-                                        fontSize = 14.sp,
-                                        color = SoundTagTextSecondary,
-                                        textAlign = TextAlign.Center
-                                    )
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(SoundTagSurface, RoundedCornerShape(16.dp))
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text("Permissions Required", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SoundTagTextPrimary)
+                                        Text("SoundTag needs microphone and location access to record audio with GPS metadata.", fontSize = 14.sp, color = SoundTagTextSecondary, textAlign = TextAlign.Center)
+                                    }
                                 }
                             }
-                        } else {
-                            // Record Screen
-                            val location = (serviceState as? RecordingState.Recording)?.location
+                            else -> {
+                                val location = (serviceState as? RecordingState.Recording)?.location
 
-                            RecordScreen(
-                                isRecording = uiState is UiState.Recording || serviceState is RecordingState.Recording,
-                                elapsedSeconds = elapsed,
-                                location = location,
-                                annotatorId = annotatorId,
-                                onToggleRecording = {
-                                    when (uiState) {
-                                        is UiState.Recording -> vm.stopRecording(context)
-                                        is UiState.Idle -> vm.startRecording(context)
-                                        else -> {}
-                                    }
-                                },
-                                onSettingsTap = { vm.openSetup() }
-                            )
+                                RecordScreen(
+                                    isRecording = uiState is UiState.Recording || serviceState is RecordingState.Recording,
+                                    elapsedSeconds = elapsed,
+                                    location = location,
+                                    annotatorId = annotatorId,
+                                    todayCount = todayCount,
+                                    onToggleRecording = {
+                                        when (uiState) {
+                                            is UiState.Recording -> vm.stopRecording(context)
+                                            is UiState.Idle -> vm.startRecording(context)
+                                            else -> {}
+                                        }
+                                    },
+                                    onDashboardTap = { vm.openDashboard() }
+                                )
 
-                            // Annotation bottom sheet
-                            if (uiState is UiState.Annotating || uiState is UiState.Saving) {
-                                val annotatingState = uiState as? UiState.Annotating
-
-                                if (annotatingState != null) {
-                                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-                                    ModalBottomSheet(
-                                        onDismissRequest = { vm.dismissAnnotation() },
-                                        sheetState = sheetState,
-                                        containerColor = SoundTagSurfaceVariant,
-                                        dragHandle = null
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 12.dp, bottom = 8.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally
+                                if (uiState is UiState.Annotating || uiState is UiState.Saving) {
+                                    val annotatingState = uiState as? UiState.Annotating
+                                    if (annotatingState != null) {
+                                        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+                                        ModalBottomSheet(
+                                            onDismissRequest = { vm.dismissAnnotation() },
+                                            sheetState = sheetState,
+                                            containerColor = SoundTagSurfaceVariant,
+                                            dragHandle = null,
+                                            modifier = Modifier.fillMaxHeight(0.6f)
                                         ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .height(4.dp)
-                                                    .fillMaxWidth(0.1f)
-                                                    .background(SoundTagBorder, RoundedCornerShape(2.dp))
+                                            Column(
+                                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .height(4.dp)
+                                                        .fillMaxWidth(0.1f)
+                                                        .background(SoundTagBorder, RoundedCornerShape(2.dp))
+                                                )
+                                            }
+                                            AnnotateSheetContent(
+                                                annotation = annotation,
+                                                durationSeconds = annotatingState.durationSeconds,
+                                                recordingTime = annotatingState.startTime.format(DateTimeFormatter.ofPattern("h:mm a")),
+                                                location = annotatingState.location,
+                                                onAnnotationChange = { vm.updateAnnotation(it) },
+                                                onSave = { vm.saveRecording(context) },
+                                                isSaving = uiState is UiState.Saving,
+                                                isDriveConnected = isDriveConnected,
+                                                annotatorId = annotatorId
                                             )
                                         }
-
-                                        AnnotateSheetContent(
-                                            annotation = annotation,
-                                            durationSeconds = annotatingState.durationSeconds,
-                                            recordingTime = annotatingState.startTime.format(
-                                                DateTimeFormatter.ofPattern("h:mm a")
-                                            ),
-                                            location = annotatingState.location,
-                                            onAnnotationChange = { vm.updateAnnotation(it) },
-                                            onSave = { vm.saveRecording(context) },
-                                            isSaving = uiState is UiState.Saving,
-                                            isDriveConnected = isDriveConnected,
-                                            annotatorId = annotatorId
-                                        )
                                     }
                                 }
                             }

@@ -173,6 +173,41 @@ fun AnnotateSheetContent(
             }
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+        // Severity score slider (1-5)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Score: ${annotation.severityScore}",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = SoundTagTextSecondary,
+                modifier = Modifier.width(60.dp)
+            )
+            (1..5).forEach { score ->
+                val isSelected = annotation.severityScore == score
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(32.dp)
+                        .padding(horizontal = 2.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) SoundTagGreen else SoundTagSurface)
+                        .clickable { onAnnotationChange(annotation.copy(severityScore = score)) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "$score",
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) SoundTagBackground else SoundTagTextTertiary
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
 
         // Section 3: Environment + Location context

@@ -39,8 +39,9 @@ fun RecordScreen(
     elapsedSeconds: Long,
     location: LocationFix?,
     annotatorId: String,
+    todayCount: Int,
     onToggleRecording: () -> Unit,
-    onSettingsTap: () -> Unit,
+    onDashboardTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val accentColor = if (isRecording) SoundTagError else SoundTagGreen
@@ -53,7 +54,7 @@ fun RecordScreen(
             .background(SoundTagBackground)
     ) {
         // Top bar
-        TopBar(isRecording = isRecording, annotatorId = annotatorId, onSettingsTap = onSettingsTap)
+        TopBar(isRecording = isRecording, annotatorId = annotatorId, onDashboardTap = onDashboardTap)
 
         // Colored strip
         Box(
@@ -156,12 +157,12 @@ fun RecordScreen(
         }
 
         // Bottom bar
-        BottomBar(isRecording = isRecording, location = location)
+        BottomBar(isRecording = isRecording, location = location, todayCount = todayCount)
     }
 }
 
 @Composable
-private fun TopBar(isRecording: Boolean, annotatorId: String, onSettingsTap: () -> Unit) {
+private fun TopBar(isRecording: Boolean, annotatorId: String, onDashboardTap: () -> Unit) {
     val dotColor = if (isRecording) SoundTagError else SoundTagGreen
 
     Row(
@@ -211,7 +212,7 @@ private fun TopBar(isRecording: Boolean, annotatorId: String, onSettingsTap: () 
                 .size(36.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(SoundTagSurface)
-                .clickable(onClick = onSettingsTap),
+                .clickable(onClick = onDashboardTap),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -247,7 +248,7 @@ private fun WaveformBars() {
 }
 
 @Composable
-private fun BottomBar(isRecording: Boolean, location: LocationFix?) {
+private fun BottomBar(isRecording: Boolean, location: LocationFix?, todayCount: Int) {
     val pinColor = if (isRecording) SoundTagError else SoundTagGreen
 
     Column(
@@ -320,7 +321,7 @@ private fun BottomBar(isRecording: Boolean, location: LocationFix?) {
             }
         } else {
             Text(
-                text = "Today: 0 recordings",
+                text = "Today: $todayCount recordings",
                 fontSize = 13.sp,
                 color = SoundTagTextTertiary
             )

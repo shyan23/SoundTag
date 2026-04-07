@@ -10,6 +10,8 @@ import com.soundtag.data.DriveUploader
 import com.soundtag.data.FileSaver
 import com.soundtag.data.LocationFix
 import com.soundtag.data.MetadataWriter
+import com.soundtag.data.RecordingEntry
+import com.soundtag.data.RecordingRepository
 import com.soundtag.data.UploadResult
 import com.soundtag.data.UserPreferences
 import com.soundtag.service.RecordingService
@@ -42,6 +44,7 @@ sealed class SaveResult {
 class RecordingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = UserPreferences(application)
+    private val repo = RecordingRepository(application)
 
     val serviceState: StateFlow<RecordingState> = RecordingService.state
     val elapsedSeconds: StateFlow<Long> = RecordingService.elapsedSeconds
@@ -58,7 +61,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val _saveResult = MutableStateFlow<SaveResult?>(null)
     val saveResult: StateFlow<SaveResult?> = _saveResult.asStateFlow()
 
-    // Setup state
+    // Setup
     private val _isSetupComplete = MutableStateFlow(prefs.isSetupComplete)
     val isSetupComplete: StateFlow<Boolean> = _isSetupComplete.asStateFlow()
 
@@ -74,6 +77,25 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val _showSetup = MutableStateFlow(!prefs.isSetupComplete)
     val showSetup: StateFlow<Boolean> = _showSetup.asStateFlow()
 
+    // Dashboard
+    private val _showDashboard = MutableStateFlow(false)
+    val showDashboard: StateFlow<Boolean> = _showDashboard.asStateFlow()
+
+    private val _recordings = MutableStateFlow(repo.getAll())
+    val recordings: StateFlow<List<RecordingEntry>> = _recordings.asStateFlow()
+
+    private val _todayCount = MutableStateFlow(repo.getTodayCount())
+    val todayCount: StateFlow<Int> = _todayCount.asStateFlow()
+
+    private val _totalCount = MutableStateFlow(repo.getTotalCount())
+    val totalCount: StateFlow<Int> = _totalCount.asStateFlow()
+
+    private val _labelCounts = MutableStateFlow(repo.getCountByLabel())
+    val labelCounts: StateFlow<Map<String, Int>> = _labelCounts.asStateFlow()
+
+    private val _totalDuration = MutableStateFlow(repo.getTotalDuration())
+    val totalDuration: StateFlow<Long> = _totalDuration.asStateFlow()
+
     fun setPermissionsGranted(granted: Boolean) {
         _hasPermissions.value = granted
     }
@@ -83,13 +105,8 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     // Setup
-    fun updateName(name: String) {
-        _annotatorName.value = name
-    }
-
-    fun updateId(id: String) {
-        _annotatorId.value = id
-    }
+    fun updateName(name: String) { _annotatorName.value = name }
+    fun updateId(id: String) { _annotatorId.value = id }
 
     fun completeSetup() {
         prefs.annotatorName = _annotatorName.value
@@ -99,20 +116,37 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         _showSetup.value = false
     }
 
-    fun openSetup() {
-        _showSetup.value = true
+    fun openSetup() { _showSetup.value = true }
+
+    // Dashboard
+    fun openDashboard() {
+        refreshDashboardData()
+        _showDashboard.value = true
     }
 
-    fun closeSetup() {
-        if (_isSetupComplete.value) {
-            _showSetup.value = false
+    fun closeDashboard() { _showDashboard.value = false }
+
+    private fun refreshDashboardData() {
+        _recordings.value = repo.getAll()
+        _todayCount.value = repo.getTodayCount()
+        _totalCount.value = repo.getTotalCount()
+        _labelCounts.value = repo.getCountByLabel()
+        _totalDuration.value = repo.getTotalDuration()
+    }
+
+    fun syncPending() {
+        if (!_isDriveConnected.value) return
+        val pending = repo.getPending()
+        viewModelScope.launch {
+            pending.forEach { entry ->
+                // We can't re-upload without the original file, so just mark as noted
+                // In a real app, we'd queue the files. For now this is a placeholder.
+            }
         }
     }
 
     // Drive
-    fun getSignInIntent(): Intent {
-        return DriveUploader.getSignInIntent(getApplication())
-    }
+    fun getSignInIntent(): Intent = DriveUploader.getSignInIntent(getApplication())
 
     fun handleDriveSignIn(data: Intent?) {
         val success = DriveUploader.handleSignInResult(data)
@@ -141,9 +175,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             val timestamp = currentState.startTime.format(
                 DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
             )
-            _annotation.value = AnnotationData(
-                fileName = "misc_$timestamp"
-            )
+            _annotation.value = AnnotationData(fileName = "misc_$timestamp")
             _uiState.value = UiState.Annotating(
                 startTime = currentState.startTime,
                 location = currentState.location,
@@ -155,9 +187,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun updateAnnotation(data: AnnotationData) {
-        _annotation.value = data
-    }
+    fun updateAnnotation(data: AnnotationData) { _annotation.value = data }
 
     fun saveRecording(context: Context) {
         val state = _uiState.value
@@ -181,7 +211,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                 annotatorId = aid
             )
 
-            // Upload to Drive first if connected (before temp file is deleted)
+            // Upload to Drive first if connected
             var uploaded = false
             if (_isDriveConnected.value) {
                 val result = DriveUploader.uploadRecording(
@@ -194,13 +224,30 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                 uploaded = result is UploadResult.Success
             }
 
-            // Save locally (always)
+            // Save locally
             val uri = FileSaver.saveRecording(
                 context = context,
                 audioFile = state.tempFile,
                 desiredName = filename,
                 jsonContent = json
             )
+
+            // Track in repository
+            val uploadStatus = when {
+                uploaded -> "uploaded"
+                _isDriveConnected.value -> "failed"
+                else -> "local"
+            }
+            repo.addRecording(
+                RecordingEntry(
+                    filename = filename,
+                    noiseType = currentAnnotation.noiseType.ifEmpty { "misc" },
+                    timestamp = state.startTime.toInstant().toEpochMilli(),
+                    durationSeconds = state.durationSeconds,
+                    uploadStatus = uploadStatus
+                )
+            )
+            refreshDashboardData()
 
             if (uri != null) {
                 _saveResult.value = SaveResult.Success("$filename.m4a", uploaded = uploaded)
