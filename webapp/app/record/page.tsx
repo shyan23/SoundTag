@@ -18,6 +18,7 @@ export default function RecordPage() {
     runAudioDiagnostics,
     diagnosticsText,
     diagnosticsRunning,
+    eventLog,
   } = useSoundTag();
 
   return (
@@ -162,6 +163,27 @@ export default function RecordPage() {
             }}
           >
             {diagnosticsText}
+          </pre>
+        ) : null}
+        {eventLog.length > 0 ? (
+          <pre
+            className="mono small"
+            style={{
+              marginTop: 10,
+              width: "100%",
+              maxWidth: 460,
+              maxHeight: 180,
+              overflow: "auto",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: 10,
+              color: "var(--muted)",
+              textAlign: "left",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {eventLog.join("\n")}
           </pre>
         ) : null}
       </footer>

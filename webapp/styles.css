@@ -105,7 +105,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--brand)}
   border:1.5px solid var(--border);display:grid;place-items:center;
   position:relative;transition:border-color .3s}
 .mic-ring-outer::before{content:"";position:absolute;inset:-14px;border-radius:50%;
-  border:1px dashed transparent}
+  border:1px dashed transparent;pointer-events:none}
 .mic-ring-inner{width:182px;height:182px;border-radius:50%;
   border:1px solid var(--brand-sub);display:grid;place-items:center;
   transition:border-color .3s}

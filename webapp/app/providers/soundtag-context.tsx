@@ -57,6 +57,7 @@ type Ctx = {
   runAudioDiagnostics: () => Promise<void>;
   diagnosticsText: string;
   diagnosticsRunning: boolean;
+  eventLog: string[];
   lastInfoText: string;
   lastGpsText: string;
   playbackUrl: string;
@@ -127,7 +128,14 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
   const [lastStartError, setLastStartError] = useState("");
   const [diagnosticsText, setDiagnosticsText] = useState("");
   const [diagnosticsRunning, setDiagnosticsRunning] = useState(false);
+  const [eventLog, setEventLog] = useState<string[]>([]);
+  const [starting, setStarting] = useState(false);
   const [selections, setSelections] = useState<any>(defaultSelections());
+
+  const logEvent = useCallback((message: string) => {
+    const ts = new Date().toLocaleTimeString();
+    setEventLog((prev) => [`[${ts}] ${message}`, ...prev].slice(0, 40));
+  }, []);
 
   const setToastMessage = useCallback((text: string, kind: "" | "success" | "error" = "") => {
     setToast({ text, kind });
@@ -163,9 +171,17 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
 
   const startOrStop = useCallback(async () => {
     if (!recorderRef.current) return;
+    if (starting) {
+      logEvent("Ignored click: start already in progress");
+      return;
+    }
+    logEvent(`Record button clicked (recording=${recording})`);
     if (!recording) {
       try {
+        setStarting(true);
+        logEvent("Attempting to start recorder");
         const stream = await recorderRef.current.start();
+        logEvent("Recorder start succeeded");
         setLastStartError("");
         setRecording(true);
         setPeakDb(0);
@@ -189,7 +205,9 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
           if (ms >= MAX_DURATION_MS) void startOrStop();
         }, 100);
         void refreshGps();
+        setToastMessage("Recording started", "success");
       } catch (e: any) {
+        logEvent(`Recorder start failed: ${e?.name || "Error"} ${e?.message || ""}`.trim());
         setLastStartError(e?.name ? `${e.name}: ${e?.message || ""}` : e?.message || "unknown error");
         if (e?.message === "media-devices-unavailable") {
           setToastMessage("Recording not supported in this browser/session", "error");
@@ -198,12 +216,16 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
         } else {
           setToastMessage(`Could not start recording: ${e?.message || "unknown error"}`, "error");
         }
+      } finally {
+        setStarting(false);
       }
       return;
     }
 
     try {
+      logEvent("Attempting to stop recorder");
       const result = await recorderRef.current.stop();
+      logEvent("Recorder stop succeeded");
       if (timerRef.current) window.clearInterval(timerRef.current);
       timerRef.current = null;
       if (dbMeterRef.current) {
@@ -230,15 +252,17 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
       setNotes("");
       router.push("/annotate");
     } catch (e: any) {
+      logEvent(`Recorder stop failed: ${e?.name || "Error"} ${e?.message || ""}`.trim());
       if (e?.message === "min-duration") setToastMessage("Minimum 5 seconds", "error");
     }
-  }, [loc, peakDb, recording, refreshGps, router, selections.label, setToastMessage]);
+  }, [loc, logEvent, peakDb, recording, refreshGps, router, selections.label, setToastMessage, starting]);
 
   const runAudioDiagnostics = useCallback(async () => {
     setDiagnosticsRunning(true);
     const lines: string[] = [];
     const push = (k: string, v: string) => lines.push(`${k}: ${v}`);
     try {
+      logEvent("Running audio diagnostics");
       push("timestamp", new Date().toISOString());
       push("userAgent", navigator.userAgent);
       push("secureContext", String(window.isSecureContext));
@@ -307,8 +331,9 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
     } finally {
       setDiagnosticsText(lines.join("\n"));
       setDiagnosticsRunning(false);
+      logEvent("Audio diagnostics completed");
     }
-  }, [lastStartError]);
+  }, [lastStartError, logEvent]);
 
   const setSelection = useCallback((key: string, value: string | number | boolean) => {
     setSelections((prev: any) => {
@@ -538,6 +563,7 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
     runAudioDiagnostics,
     diagnosticsText,
     diagnosticsRunning,
+    eventLog,
     lastInfoText,
     lastGpsText,
     playbackUrl,
