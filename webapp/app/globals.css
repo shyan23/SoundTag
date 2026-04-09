@@ -1,0 +1,11 @@
+@import "../styles.css";
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.view-link-btn {
+  display: inline-flex;
+  width: 100%;
+}

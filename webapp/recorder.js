@@ -25,14 +25,24 @@ export class Recorder {
   }
 
   async start() {
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        sampleRate: 44100,
-        echoCancellation: false,
-        noiseSuppression: false,
-      },
-    });
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      throw new Error("media-devices-unavailable");
+    }
+
+    // Some browsers/devices reject strict constraints. Try preferred first,
+    // then fall back to plain audio capture so recording still works.
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 44100,
+          echoCancellation: false,
+          noiseSuppression: false,
+        },
+      });
+    } catch {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     this.mimeType = CANDIDATE_MIMES.find(m => MediaRecorder.isTypeSupported(m)) || "";
     this.mediaRecorder = new MediaRecorder(
       this.stream,
