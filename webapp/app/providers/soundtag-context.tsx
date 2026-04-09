@@ -58,6 +58,8 @@ type Ctx = {
   diagnosticsText: string;
   diagnosticsRunning: boolean;
   eventLog: string[];
+  lastSavedMeta: any | null;
+  lastSaveStatus: string;
   lastInfoText: string;
   lastGpsText: string;
   playbackUrl: string;
@@ -130,6 +132,8 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
   const [diagnosticsRunning, setDiagnosticsRunning] = useState(false);
   const [eventLog, setEventLog] = useState<string[]>([]);
   const [starting, setStarting] = useState(false);
+  const [lastSavedMeta, setLastSavedMeta] = useState<any | null>(null);
+  const [lastSaveStatus, setLastSaveStatus] = useState("");
   const [selections, setSelections] = useState<any>(defaultSelections());
 
   const logEvent = useCallback((message: string) => {
@@ -408,7 +412,9 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
 
       addRecording(meta, status);
       refreshDashboard();
-      router.push("/record");
+      setLastSavedMeta(meta);
+      setLastSaveStatus(status);
+      router.push("/summary");
     },
     [currentMetadata, lastRecording, refreshDashboard, router, setToastMessage],
   );
@@ -564,6 +570,8 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
     diagnosticsText,
     diagnosticsRunning,
     eventLog,
+    lastSavedMeta,
+    lastSaveStatus,
     lastInfoText,
     lastGpsText,
     playbackUrl,

@@ -253,6 +253,24 @@ input:focus,textarea:focus{outline:none;border-color:var(--brand)}
 .bar-count{width:30px;text-align:right;color:var(--muted);font-weight:500}
 .warn-text{color:var(--warn);font-size:13px}
 
+/* ---------- Summary ---------- */
+.summary-main{flex:1;display:flex;flex-direction:column;gap:14px;
+  padding:14px 20px 24px;overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain}
+.summary-hero-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:20px;display:flex;flex-direction:column;
+  align-items:center;gap:10px}
+.summary-hero-icon{width:52px;height:52px;border-radius:50%;
+  background:var(--brand-faint);display:grid;place-items:center}
+.summary-hero-label{font-size:14px;font-weight:600;color:var(--text)}
+.summary-detail-row{display:flex;justify-content:space-between;align-items:baseline;
+  gap:12px;padding:4px 0;border-bottom:1px solid var(--border)}
+.summary-detail-row:last-child{border-bottom:none}
+.summary-detail-label{font-size:13px;color:var(--muted);flex-shrink:0}
+.summary-detail-value{font-size:13px;color:var(--text);text-align:right;
+  word-break:break-word}
+.summary-card audio{border-radius:8px;height:36px}
+
 /* ---------- Snackbar ---------- */
 .snackbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
   background:var(--surface);border:1px solid var(--border);padding:12px 18px;
