@@ -4,10 +4,13 @@
 export const MIN_DURATION_MS = 5_000;
 export const MAX_DURATION_MS = 5 * 60_000;
 
+// Match Android app output format: AAC (.m4a), 44100 Hz, mono.
+// Browsers vary in support; we prefer MP4/AAC and fall back gracefully.
 const CANDIDATE_MIMES = [
+  "audio/mp4",
+  "audio/aac",
   "audio/webm;codecs=opus",
   "audio/webm",
-  "audio/mp4",
 ];
 
 export class Recorder {

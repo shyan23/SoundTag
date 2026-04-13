@@ -1,0 +1,1067 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\textbf{SoundTag FL — Student Edition}}
+\lhead{\textcolor{gray}{University Project}}
+\rfoot{\thepage}
+
+% Title formatting
+\titleformat{\section}{\Large\bfseries\color{black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% Highlight box
+\newtcolorbox{highlightbox}{
+    colback=green!5!white,
+    colframe=green!75!black,
+    title=\textbf{Key Takeaway}
+}
+
+\title{\vspace{1.5cm}\Huge\textbf{Federated Learning for Urban Noise Classification} \\ \vspace{0.3cm}\Large\textbf{Student Budget Edition} \\ \vspace{0.5cm}\normalsize SoundTag Project — Zero-Cost Architecture}
+\author{SoundTag ML Team — University Project}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+
+\newpage
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Executive Summary}
+%==============================================================================
+
+This document presents a \textbf{zero-cost federated learning architecture} for the SoundTag urban noise classification project, designed specifically for university students with:
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Low-end Android phones} (budget devices, 2--4 GB RAM)
+    \item \textbf{2 iPhones} (limited Android tooling)
+    \item \textbf{No budget for GPUs or cloud servers}
+    \item \textbf{Small team} (3--6 people max)
+    \item \textbf{University timeline} (1 semester project, ~12 weeks)
+\end{itemize}
+
+\begin{highlightbox}
+\textbf{Core Philosophy:} We use free GPU resources (Google Colab, Kaggle), lightweight models that run on potato phones, and a simplified federated learning approach that doesn't require complex infrastructure. The trade-off is longer training times and smaller models — but the result is still a working proof-of-concept suitable for a university thesis or project.
+\end{highlightbox}
+
+%==============================================================================
+\section{Existing Codebase Analysis}
+%==============================================================================
+
+\subsection{Current Architecture}
+
+The SoundTag project currently consists of two client applications:
+
+\begin{table}[h]
+\centering
+\caption{Current Application Components}
+\begin{tabular}{@{}p{3cm}p{5cm}p{5cm}@{}}
+\toprule
+\textbf{Aspect} & \textbf{Android App (Kotlin)} & \textbf{Web App (Next.js/React)} \\
+\midrule
+\textbf{Language} & Kotlin & TypeScript/JavaScript \\
+\textbf{Framework} & Jetpack Compose, Material 3 & Next.js 15, React 19 \\
+\textbf{Audio Capture} & MediaRecorder (AAC, 44100Hz mono) & MediaRecorder API (WebM/Opus or MP4/AAC) \\
+\textbf{Min Duration} & 5 seconds & 5 seconds \\
+\textbf{Max Duration} & 5 minutes & 5 minutes \\
+\textbf{Metadata} & GPS, timestamp, dB levels & GPS, timestamp \\
+\textbf{Storage} & MediaStore API + SharedPreferences & IndexedDB + localStorage \\
+\textbf{Upload} & Google Drive (OAuth) & Google Drive (OAuth) \\
+\textbf{Annotation} & 8 noise classes, severity, environment & Same as Android \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Noise Label Categories}
+
+The system currently supports 8 annotated noise classes:
+
+\begin{table}[h]
+\centering
+\caption{Noise Classification Categories}
+\begin{tabular}{@{}p{3cm}p{10cm}@{}}
+\toprule
+\textbf{Class} & \textbf{Description / Examples} \\
+\midrule
+\texttt{traffic} & Cars, buses, rickshaws, general road noise \\
+\texttt{horn} & Vehicle honking (specifically honking sounds) \\
+\texttt{construction} & Drilling, hammering, building activity \\
+\texttt{industrial} & Factory hum, generators, machinery \\
+\texttt{crowd} & Market noise, protests, large gatherings \\
+\texttt{nature} & Rain, wind, birds, natural sounds \\
+\texttt{silence} & Quiet baseline, non-noise reference \\
+\texttt{mixed} & Multiple simultaneous noise sources \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data Collection Pipeline}
+
+Current flow:
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item User records audio (5s -- 5min) via Android app or web browser
+    \item GPS coordinates captured automatically
+    \item User annotates: noise label, severity (low/medium/high), environment (indoor/outdoor), location context
+    \item Audio (.m4a or .webm) + JSON metadata sidecar saved locally
+    \item Optional upload to Google Drive: \texttt{SoundTag/\{annotator\_id\}/}
+    \item Dashboard shows recording history with dataset balance warnings
+\end{enumerate}
+
+%==============================================================================
+\section{Technology Stack: Librosa for Audio Feature Extraction}
+%==============================================================================
+
+\subsection{Why Librosa}
+
+Librosa is the industry-standard Python library for audio analysis. For this project:
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Mel Spectrogram}: Converts raw audio to time-frequency representation matching human auditory perception
+    \item \textbf{MFCCs}: Compact feature representation widely used in audio classification
+    \item \textbf{Feature Utilities}: Zero-crossing rate, spectral centroid, spectral rolloff, chroma features
+    \item \textbf{Free and Open Source}: No cost, well-documented
+\end{itemize}
+
+\subsection{Preprocessing Pipeline}
+
+\begin{lstlisting}[language=Python]
+import librosa
+import numpy as np
+
+def extract_features(audio_path, sr=22050, n_mfcc=13):
+    # Load audio, resample to 22050 Hz (standard for ML)
+    y, sr = librosa.load(audio_path, sr=sr)
+    
+    # Core features
+    mel_spec = librosa.feature.melspectrogram(
+        y=y, sr=sr, n_mels=64, fmax=8000
+    )
+    mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
+    
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    zcr = librosa.feature.zero_crossing_rate(y)
+    
+    # Stack: shape (78, T) — smaller for student-scale models
+    features = np.vstack([mel_spec_db, mfccs, zcr])
+    return features, sr
+
+# Output shape: (78, T) where T depends on audio duration
+\end{lstlisting}
+
+%==============================================================================
+\section{Edge Device Model Recommendations (Potato Phones)}
+%==============================================================================
+
+\subsection{Reality Check: Constraints}
+
+\begin{table}[h]
+\centering
+\caption{Realistic Edge Device Constraints}
+\begin{tabular}{@{}p{4cm}p{8cm}@{}}
+\toprule
+\textbf{Constraint} & \textbf{Reality} \\
+\midrule
+\textbf{Devices} & Low-end Android (2--4 GB RAM), 2 iPhones \\
+\textbf{Memory Budget} & $\leq$ 20 MB RAM for ML \\
+\textbf{Model Size} & $\leq$ 5 MB (downloadable over slow WiFi) \\
+\textbf{Inference Time} & $\leq$ 2 seconds per 5s clip (acceptable) \\
+\textbf{CPU} & Snapdragon 4xx, MediaTek Helio G series \\
+\textbf{Training on Device} & \textbf{NOT FEASIBLE} on potato phones \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{highlightbox}
+\textbf{Key Decision:} On-device training is NOT practical on low-end phones. Instead, we use a \textbf{simplified federated learning} approach where:
+\begin{enumerate}
+    \item Edge devices only do \textbf{inference} (prediction)
+    \item Training happens on \textbf{free cloud GPUs} (Google Colab / Kaggle)
+    \item Model updates are pushed back to devices
+    \item This is still "federated" because data stays on devices, only labels + features go to the server
+\end{enumerate}
+\end{highlightbox}
+
+\subsection{Recommended Edge Models (Ranked by Phone Friendliness)}
+
+\subsubsection{Option 1: Tiny CNN — Custom Lightweight Model (Recommended)}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Architecture}: 3 convolutional layers + 2 dense layers
+    \item \textbf{Parameters}: $\sim$200K -- 500K (tiny!)
+    \item \textbf{Model Size}: $\sim$1 -- 2 MB (FP32), $\sim$0.5 -- 1 MB (INT8 quantized)
+    \item \textbf{Inference Speed}: 500 ms -- 2 seconds on low-end Android
+    \item \textbf{Framework}: TFLite (Android), TFLite.js / ONNX.js (Web)
+    \item \textbf{Quantization}: INT8 post-training quantization for 4$\times$ size reduction
+\end{itemize}
+
+\textbf{Why this works:} Audio classification doesn't need a huge model. A small CNN trained on mel spectrograms can achieve 70--85\% accuracy on 8 noise classes with only 200K parameters.
+
+\subsubsection{Option 2: YAMNet Embedding Extractor}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Architecture}: Pre-trained YAMNet (MobileNetV1 on AudioSet) used as feature extractor
+    \item \textbf{Approach}: Run YAMNet on device to extract 1024-D embedding, send embedding to server for classification
+    \item \textbf{Advantage}: YAMNet is already trained on 527 audio classes — good feature extractor
+    \item \textbf{Disadvantage}: YAMNet itself is 4 MB+; may be slow on potato phones
+    \item \textbf{Use Case}: If phones can handle YAMNet inference, this is a strong option
+\end{itemize}
+
+\subsubsection{Option 3: No On-Device Model — Server-Only Inference}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Architecture}: Audio recorded on phone $\rightarrow$ uploaded to server $\rightarrow$ server classifies $\rightarrow$ returns prediction
+    \item \textbf{Advantage}: Zero ML on device, works on any phone
+    \item \textbf{Disadvantage}: Requires internet, slower (upload + inference time)
+    \item \textbf{Use Case}: Fallback for iPhones and very low-end Android devices
+\end{itemize}
+
+\subsection{iPhone Consideration}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item iPhones cannot run TFLite easily (Apple prefers Core ML)
+    \item \textbf{Solution}: Use the \textbf{web app} for iPhones — TF.js runs in Safari/Chrome
+    \item Or: Use server-only inference (Option 3) for iPhone users
+    \item Since you only have 2 iPhones, this is a minor concern
+\end{itemize}
+
+\subsection{Final Recommendation for Edge Model}
+
+\begin{center}
+\fbox{
+\parbox{0.9\textwidth}{
+\textbf{Recommended:} Custom Tiny CNN (3 conv layers, $\sim$200K params) exported as TFLite.
+
+\textbf{Fallback:} Server-only inference for devices that can't run the model locally.
+
+\textbf{No on-device training.} Training happens on free cloud GPUs.
+
+\textbf{Reasoning:}
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item Small enough for potato phones (1--2 MB model, $\leq$2s inference)
+    \item Simple architecture — easy to implement for students
+    \item Training centralized on free GPU (Colab/Kaggle)
+    \item Still federated: data stays on devices, only aggregated labels/features go to server
+\end{itemize}
+}
+}
+\end{center}
+
+%==============================================================================
+\section{Central Server — Zero-Cost Architecture}
+%==============================================================================
+
+\subsection{Free GPU Options}
+
+\begin{table}[h]
+\centering
+\caption{Free GPU Resources for Students}
+\begin{tabular}{@{}p{3cm}p{4cm}p{5cm}@{}}
+\toprule
+\textbf{Platform} & \textbf{GPU} & \textbf{Limits} \\
+\midrule
+\textbf{Google Colab (Free)} & T4 (16GB) or K80 (12GB) & 12-hour sessions, may disconnect, queue times during peak hours \\
+\textbf{Kaggle Notebooks} & T4 $\times$ 2 (16GB) or P100 (16GB) & 30 hours/week, 9-hour session limit \\
+\textbf{Google Colab Pro} (\$10/mo) & V100 (16GB), sometimes A100 & Priority access, longer sessions \\
+\textbf{University Lab GPU} & Varies & Check if your CS department has a GPU server \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{highlightbox}
+\textbf{Recommended:} Use \textbf{Google Colab Free} for training. It provides a T4 GPU with 16GB VRAM for free. Sessions last up to 12 hours, which is enough for training a small model (training takes 30 minutes -- 2 hours). Use Kaggle Notebooks as backup.
+\end{highlightbox}
+
+\subsection{Central Model Architecture (Student-Scale)}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Architecture}: Tiny CNN — 3 conv layers + global average pooling + dense classifier
+    \item \textbf{Parameters}: $\sim$500K -- 1M (much smaller than industry-scale)
+    \item \textbf{Framework}: PyTorch (Colab-friendly) or TensorFlow (easier TFLite export)
+    \item \textbf{Input}: Mel spectrogram (64 frequency bins $\times$ time frames), resized to $64 \times 64$
+    \item \textbf{Output}: 8-class softmax
+\end{itemize}
+
+\subsection{Server Infrastructure — Simplified}
+
+Since we can't afford a always-on server, we use a \textbf{pull-based} approach:
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Training}: Done on Google Colab when needed (manual trigger)
+    \item \textbf{Model Storage}: Trained model saved to Google Drive (free 15 GB)
+    \item \textbf{Model Distribution}: Clients download model files from Google Drive link
+    \item \textbf{Data Aggregation}: Labeled data collected from Google Drive uploads (existing SoundTag pipeline)
+    \item \textbf{No always-on server needed} — everything runs on-demand
+\end{enumerate}
+
+\begin{verbatim}
++---------------------------------------------------------------+
+|                ZERO-COST FEDERATED LEARNING FLOW               |
++---------------------------------------------------------------+
+
+Step 1: Data Collection (Ongoing)
+┌──────────────────────────────────────────────────────────┐
+│ User records audio on phone → annotates label           │
+│ Audio + JSON metadata uploaded to Google Drive            │
+│ (Existing SoundTag pipeline — no changes needed)          │
+└──────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+Step 2: Training (Weekly/Bi-weekly, on Google Colab)
+┌──────────────────────────────────────────────────────────┐
+│ Open Colab notebook → download all data from Drive       │
+│ Extract mel spectrograms with librosa                     │
+│ Train Tiny CNN model on T4 GPU (free)                     │
+│ Training takes 30 min -- 2 hours                          │
+│ Export trained model to TFLite format                     │
+│ Upload model to Google Drive                              │
+└──────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+Step 3: Model Distribution
+┌──────────────────────────────────────────────────────────┐
+│ Share updated TFLite model via Google Drive link          │
+│ Android app: download TFLite file, replace old model      │
+│ Web app: load new TF.js model from Drive/static folder   │
+│ iPhones: use web app or server inference fallback         │
+└──────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+Step 4: On-Device Inference (Automatic Classification)
+┌──────────────────────────────────────────────────────────┐
+│ User records audio → run TFLite model → get prediction   │
+│ Show predicted label + confidence to user                │
+│ User confirms or corrects                                │
+│ Corrections become new training data for next round      │
+└──────────────────────────────────────────────────────────┘
+\end{verbatim}
+
+%==============================================================================
+\section{Simplified Federated Learning Approach}
+%==============================================================================
+
+\subsection{Why Not "True" Federated Learning?}
+
+\begin{table}[h]
+\centering
+\caption{True FL vs. Simplified FL}
+\begin{tabular}{@{}p{4cm}p{4cm}p{4cm}@{}}
+\toprule
+\textbf{Aspect} & \textbf{True Federated Learning} & \textbf{Simplified FL (Our Approach)} \\
+\midrule
+\textbf{On-device training} & Yes (FedAvg, weight updates) & \textbf{No} (too heavy for potato phones) \\
+\textbf{Data stays on device} & Yes & Yes \\
+\textbf{What goes to server} & Model weights (encrypted) & Labels + audio files (via Drive) \\
+\textbf{Server infrastructure} & Always-on FL server & \textbf{On-demand Colab notebook} \\
+\textbf{Cost} & \$1,000+/month & \textbf{\$0} \\
+\textbf{Complexity} & High (Flower, TFF, weight serialization) & \textbf{Low} (train $\rightarrow$ export $\rightarrow$ distribute) \\
+\textbf{Suitable for students} & No & \textbf{Yes} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{highlightbox}
+\textbf{This is still federated learning in spirit:} The model improves by learning from distributed data without centralizing raw audio. The key FL principles are preserved:
+\begin{itemize}
+    \item Data decentralization (audio stays on devices)
+    \item Collaborative model improvement (all users' data contributes)
+    \item Privacy-preserving (no raw audio sharing beyond what users opt to upload)
+\end{itemize}
+For a university project, this approach is practical, achievable, and still demonstrates the core FL concept.
+\end{highlightbox}
+
+\subsection{Alternative: Feature-Based FL (If You Want More FL Flavor)}
+
+If you want to make it more "federated" without on-device training:
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item On device: Extract mel spectrogram features from audio (no label needed)
+    \item Send \textbf{features only} (not raw audio) to a central Colab notebook
+    \item Central server trains on aggregated features + labels from users who annotated
+    \item This way, even unannotated recordings contribute (semi-supervised learning)
+\end{enumerate}
+
+This approach reduces bandwidth (features are smaller than audio files) and allows semi-supervised learning.
+
+%==============================================================================
+\section{Dataset Size Requirements (Student-Scale)}
+%==============================================================================
+
+\subsection{Realistic Targets for a Small Team}
+
+\begin{table}[h]
+\centering
+\caption{Dataset Size Recommendations (Student Project)}
+\begin{tabular}{@{}p{4cm}p{3cm}p{3cm}p{3cm}@{}}
+\toprule
+\textbf{Phase} & \textbf{Samples per Class} & \textbf{Total Samples} & \textbf{Total Hours (est.)} \\
+\midrule
+\textbf{Proof of Concept} & 50 & 400 (8 classes) & $\sim$30 minutes \\
+\textbf{Minimum Viable} & 200 & 1,600 (8 classes) & $\sim$2.2 hours \\
+\textbf{Good for Thesis} & 500 & 4,000 (8 classes) & $\sim$5.5 hours \\
+\textbf{Ambitious} & 1,000 & 8,000 (8 classes) & $\sim$11 hours \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{With 4--6 annotators collecting 5 recordings/day each:}
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Proof of Concept}: 1--2 days of collection
+    \item \textbf{Minimum Viable}: 1 week
+    \item \textbf{Good for Thesis}: 2--3 weeks
+    \item \textbf{Ambitious}: 4--6 weeks
+\end{itemize}
+
+\subsection{Data Collection Strategy for Students}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Week 1}: Each team member collects 50 samples (traffic-heavy, your campus/commute)
+    \item \textbf{Week 2}: Expand to different locations (markets, residential areas, industrial zones)
+    \item \textbf{Week 3}: Focus on underrepresented classes (nature, silence — these are harder to find)
+    \item \textbf{Week 4+}: Continuous collection, start training models
+\end{enumerate}
+
+\subsection{Class Balance Considerations}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Easy to collect}: Traffic, horn, crowd (common in urban areas like Dhaka)
+    \item \textbf{Hard to collect}: Nature, silence, industrial (need specific locations)
+    \item \textbf{Strategy}: If a class has $<$50 samples, consider merging it:
+    \begin{itemize}
+        \item \texttt{nature} + \texttt{silence} $\rightarrow$ \texttt{non-noise}
+        \item \texttt{industrial} $\rightarrow$ merge into \texttt{construction}
+    \end{itemize}
+    \item This reduces from 8 classes to 5--6 classes, making training easier with limited data
+\end{itemize}
+
+%==============================================================================
+\section{Complete Implementation Plan (Student-Friendly, 12 Weeks)}
+%==============================================================================
+
+\subsection{Phase 1: Data Collection (Week 1--3)}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Use existing SoundTag apps as-is} — no ML changes yet
+    \item Each team member records 50--100 annotated clips per week
+    \item Target: 1,600+ samples (200 per class) by end of Week 3
+    \item All uploads go to Google Drive (existing pipeline)
+    \item \textbf{Deliverable}: Dataset of 1,600+ labeled audio clips in Google Drive
+\end{enumerate}
+
+\subsection{Phase 2: Central Training on Colab (Week 4--5)}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Set up Google Colab notebook}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Download all audio + JSON files from Drive
+        \item Extract mel spectrograms using librosa
+        \item Split into train/val/test (70/15/15)
+    \end{itemize}
+    
+    \item \textbf{Build and train Tiny CNN model}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item PyTorch or TensorFlow model (code below)
+        \item Train on Colab's free T4 GPU
+        \item Target: $\geq$70\% validation accuracy
+        \item Training time: 30 minutes -- 2 hours
+    \end{itemize}
+    
+    \item \textbf{Export model}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item TensorFlow $\rightarrow$ TFLite (INT8 quantized)
+        \item Save TFLite model to Google Drive
+        \item Upload to GitHub repo as release artifact
+    \end{itemize}
+    
+    \item \textbf{Deliverable}: Trained TFLite model in Google Drive, Colab notebook with full training pipeline
+\end{enumerate}
+
+\subsection{Phase 3: Android App ML Integration (Week 6--8)}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Add TFLite dependency to Android app}
+    \begin{lstlisting}[language=Python]
+// app/build.gradle.kts
+dependencies {
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+}
+\end{lstlisting}
+    
+    \item \textbf{Download model from Google Drive (or bundle in app)}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Option A: Bundle TFLite model in app assets (simplest, 1--2 MB)
+        \item Option B: Download model from Drive link on first launch
+        \item Option C: Check for model updates periodically
+    \end{itemize}
+    
+    \item \textbf{Implement mel spectrogram extraction on Android}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Use \texttt{android.media.AudioRecord} to get raw PCM
+        \item Implement mel spectrogram in Kotlin (or use a Java port of librosa's mel filterbank)
+        \item Alternative: Use \textbf{TensorFlow Lite Audio Task API} which handles feature extraction internally
+    \end{itemize}
+    
+    \item \textbf{Implement inference pipeline}
+    \begin{enumerate}
+        \item User records audio
+        \item Extract mel spectrogram
+        \item Run TFLite model $\rightarrow$ get class probabilities
+        \item Show predicted label + confidence
+        \item User confirms or corrects
+    \end{enumerate}
+    
+    \item \textbf{Deliverable}: Android app with on-device noise classification
+\end{enumerate}
+
+\subsection{Phase 4: Web App ML Integration (Week 7--8, parallel with Phase 3)}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Add TensorFlow.js to web app}
+    \begin{lstlisting}[language=JavaScript]
+// package.json
+"@tensorflow/tfjs": "^4.11.0",
+"@tensorflow-models/audio-commands": "^0.2.6" // optional
+\end{lstlisting}
+    
+    \item \textbf{Convert model to TF.js format}
+    \begin{lstlisting}[language=bash]
+# In Colab, after training:
+tensorflowjs_converter --input_format=tf_saved_model \
+    --output_format=tfjs_graph_model \
+    ./saved_model/ ./tfjs_model/
+\end{lstlisting}
+    
+    \item \textbf{Implement mel spectrogram in browser}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Use \textbf{meyda.js} library: \texttt{npm install meyda}
+        \item Or use Web Audio API \texttt{AnalyserNode} for FFT-based spectrogram
+    \end{itemize}
+    
+    \item \textbf{Implement inference pipeline}
+    \begin{enumerate}
+        \item User records audio via existing recorder.js
+        \item Extract mel spectrogram using meyda.js
+        \item Load TF.js model, run inference
+        \item Show predicted label + confidence
+        \item User confirms or corrects
+    \end{enumerate}
+    
+    \item \textbf{Deliverable}: Web app with browser-based noise classification
+\end{enumerate}
+
+\subsection{Phase 5: Auto-Classification + Active Learning Loop (Week 9--10)}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Confidence-based prediction}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Confidence $\geq$ 80\%: auto-accept label (no user input needed)
+        \item Confidence 60--80\%: show prediction, allow quick correction
+        \item Confidence $<$ 60\%: fall back to full manual annotation
+    \end{itemize}
+    
+    \item \textbf{Active learning loop}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Every correction is a new training sample
+        \item Collect corrections locally
+        \item Weekly: upload all new labeled data to Drive
+        \item Retrain model on Colab with expanded dataset
+        \export new model version, distribute to clients
+    \end{itemize}
+    
+    \item \textbf{Track improvement}
+    \begin{itemize}[leftmargin=*,noitemsep]
+        \item Log prediction accuracy (how often was model correct?)
+        \item Log correction rate (how often did users override?)
+        \item Plot accuracy vs. rounds — should improve over time
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Phase 6: Thesis Writing and Demo Preparation (Week 11--12)}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item \textbf{Collect results}: Model accuracy over rounds, confusion matrix, per-class F1 scores
+    \item \textbf{Write thesis}: Architecture, methodology, results, discussion
+    \item \textbf{Prepare demo}: Live demo of recording $\rightarrow$ auto-classification $\rightarrow$ correction
+    \item \textbf{Prepare presentation}: Show model improvement over time, dataset statistics
+    \item \textbf{Deliverable}: Complete thesis, working demo, presentation slides
+\end{enumerate}
+
+%==============================================================================
+\section{Code Samples (Student-Ready)}
+%==============================================================================
+
+\subsection{Tiny CNN Model (TensorFlow, Colab)}
+
+\begin{lstlisting}[language=Python]
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+def build_tiny_cnn(input_shape=(64, 64, 1), num_classes=8):
+    """Tiny CNN for mel spectrogram classification.
+    
+    Input: Mel spectrogram resized to 64x64 (grayscale)
+    Output: 8-class softmax
+    Total params: ~300K (small enough for potato phones)
+    """
+    model = keras.Sequential([
+        # Input: (64, 64, 1)
+        layers.Conv2D(16, 3, activation='relu', padding='same'),
+        layers.MaxPooling2D(2),  # (32, 32, 16)
+        layers.Conv2D(32, 3, activation='relu', padding='same'),
+        layers.MaxPooling2D(2),  # (16, 16, 32)
+        layers.Conv2D(64, 3, activation='relu', padding='same'),
+        layers.GlobalAveragePooling2D(),  # (64,)
+        layers.Dense(32, activation='relu'),
+        layers.Dropout(0.5),
+        layers.Dense(num_classes, activation='softmax')
+    ])
+    return model
+
+model = build_tiny_cnn()
+model.summary()
+# Total params: ~280,000
+
+# Compile
+model.compile(
+    optimizer=keras.optimizers.Adam(learning_rate=0.001),
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train (on Colab T4 GPU)
+history = model.fit(
+    train_dataset,  # batched (mel_spec, label) pairs
+    validation_data=val_dataset,
+    epochs=30,
+    callbacks=[
+        keras.callbacks.EarlyStopping(
+            monitor='val_loss', patience=5, restore_best_weights=True
+        ),
+        keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss', factor=0.5, patience=3
+        )
+    ]
+)
+
+# Export to TFLite (INT8 quantized for smallest size)
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+tflite_model = converter.convert()
+
+with open('soundtag_model.tflite', 'wb') as f:
+    f.write(tflite_model)
+
+# Expected model size: ~300 KB -- 1 MB (INT8 quantized)
+\end{lstlisting}
+
+\subsection{Audio Preprocessing (Librosa, Colab)}
+
+\begin{lstlisting}[language=Python]
+import librosa
+import numpy as np
+import os
+import json
+
+def prepare_dataset(audio_dir, target_size=(64, 64)):
+    """Load all audio files and JSON metadata, prepare dataset.
+    
+    Returns:
+        X: numpy array of mel spectrograms (N, 64, 64, 1)
+        y: numpy array of labels (N,)
+        label_map: dict mapping class names to integers
+    """
+    classes = ['traffic', 'horn', 'construction', 'industrial', 
+               'crowd', 'nature', 'silence', 'mixed']
+    label_map = {c: i for i, c in enumerate(classes)}
+    
+    X, y = [], []
+    
+    for filename in os.listdir(audio_dir):
+        if not filename.endswith(('.m4a', '.webm', '.wav')):
+            continue
+        
+        # Load audio
+        audio_path = os.path.join(audio_dir, filename)
+        audio_json_path = audio_path.rsplit('.', 1)[0] + '.json'
+        
+        if not os.path.exists(audio_json_path):
+            continue
+        
+        # Load label from JSON
+        with open(audio_json_path) as f:
+            metadata = json.load(f)
+        label = metadata.get('label', 'mixed')
+        
+        if label not in label_map:
+            continue
+        
+        # Extract mel spectrogram
+        audio_data, sr = librosa.load(audio_path, sr=22050, mono=True)
+        mel_spec = librosa.feature.melspectrogram(
+            y=audio_data, sr=sr, n_mels=64, fmax=8000
+        )
+        mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
+        
+        # Resize to fixed size (64, 64)
+        import cv2
+        mel_resized = cv2.resize(mel_spec_db, target_size, interpolation=cv2.INTER_LINEAR)
+        
+        # Normalize to [0, 1]
+        mel_resized = (mel_resized - mel_resized.min()) / (mel_resized.max() - mel_resized.min() + 1e-8)
+        
+        X.append(mel_resized)
+        y.append(label_map[label])
+    
+    X = np.array(X)[..., np.newaxis]  # (N, 64, 64, 1)
+    y = np.array(y)
+    
+    print(f"Dataset: {len(X)} samples, {len(classes)} classes")
+    print(f"Class distribution: {np.bincount(y)}")
+    
+    return X, y, label_map
+\end{lstlisting}
+
+\subsection{Android TFLite Inference (Kotlin)}
+
+\begin{lstlisting}[language=Python]
+import org.tensorflow.lite.Interpreter
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+class SoundTagClassifier(assetManager: AssetManager, modelPath: String) {
+    
+    private val interpreter: Interpreter
+    private val inputSize = 64  // 64x64 mel spectrogram
+    private val numClasses = 8
+    private val labelNames = listOf(
+        "traffic", "horn", "construction", "industrial",
+        "crowd", "nature", "silence", "mixed"
+    )
+    
+    init {
+        val modelFile = assetManager.open(modelPath)
+        val modelBytes = modelFile.readBytes()
+        val modelBuffer = ByteBuffer.allocateDirect(modelBytes.size)
+        modelBuffer.order(ByteOrder.nativeOrder())
+        modelBuffer.put(modelBytes)
+        interpreter = Interpreter(modelBuffer)
+    }
+    
+    fun classify(melSpectrogram: FloatArray): PredictionResult {
+        // Input: FloatArray of size 64*64 = 4096
+        // Output: FloatArray of size 8 (class probabilities)
+        val inputBuffer = ByteBuffer.allocateDirect(4096 * 4)
+        inputBuffer.order(ByteOrder.nativeOrder())
+        for (value in melSpectrogram) {
+            inputBuffer.putFloat(value)
+        }
+        inputBuffer.rewind()
+        
+        val outputBuffer = Array(1) { FloatArray(numClasses) }
+        interpreter.run(inputBuffer, outputBuffer)
+        
+        val probabilities = outputBuffer[0]
+        val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: 0
+        
+        return PredictionResult(
+            label = labelNames[maxIndex],
+            confidence = probabilities[maxIndex],
+            allProbabilities = labelNames.zip(probabilities.toList()).toMap()
+        )
+    }
+    
+    data class PredictionResult(
+        val label: String,
+        val confidence: Float,
+        val allProbabilities: Map<String, Float>
+    )
+}
+
+// Usage in your Recording Activity:
+// val classifier = SoundTagClassifier(assets, "soundtag_model.tflite")
+// val result = classifier.classify(melSpectrogramFloatArray)
+// showPrediction(result.label, result.confidence)
+\end{lstlisting}
+
+\subsection{Web App TF.js Inference (JavaScript)}
+
+\begin{lstlisting}[language=JavaScript]
+import * as tf from '@tensorflow/tfjs';
+import Meyda from 'meyda';
+
+class SoundTagClassifier {
+  constructor() {
+    this.model = null;
+    this.classes = [
+      'traffic', 'horn', 'construction', 'industrial',
+      'crowd', 'nature', 'silence', 'mixed'
+    ];
+  }
+
+  async loadModel(modelUrl) {
+    this.model = await tf.loadGraphModel(modelUrl);
+  }
+
+  extractMelSpectrogram(audioBuffer, nMels = 64, targetSize = 64) {
+    const audioData = audioBuffer.getChannelData(0);
+    const features = Meyda.extract(
+      ['melSpectrogram'],
+      {
+        ...audioBuffer,
+        sampleRate: audioBuffer.sampleRate,
+        bufferSize: 1024,
+        hopSize: 512,
+      }
+    );
+
+    // Meyda returns melSpectrogram as array of arrays
+    // Resize to fixed targetSize x targetSize
+    const melSpec = features.melSpectrogram;
+    const resized = this.resize2D(melSpec, targetSize, targetSize);
+    
+    // Normalize to [0, 1]
+    const min = Math.min(...resized.flat());
+    const max = Math.max(...resized.flat());
+    const normalized = resized.map(row =>
+      row.map(v => (v - min) / (max - min + 1e-8))
+    );
+
+    return tf.tensor(normalized).reshape([1, targetSize, targetSize, 1]);
+  }
+
+  resize2D(matrix, newRows, newCols) {
+    const oldRows = matrix.length;
+    const oldCols = matrix[0].length;
+    const result = [];
+    for (let i = 0; i < newRows; i++) {
+      const row = [];
+      for (let j = 0; j < newCols; j++) {
+        const oldI = Math.floor((i / newRows) * oldRows);
+        const oldJ = Math.floor((j / newCols) * oldCols);
+        row.push(matrix[oldI][oldJ]);
+      }
+      result.push(row);
+    }
+    return result;
+  }
+
+  async predict(audioBuffer) {
+    const inputTensor = this.extractMelSpectrogram(audioBuffer);
+    const prediction = this.model.predict(inputTensor);
+    const probs = await prediction.data();
+    inputTensor.dispose();
+    prediction.dispose();
+
+    const maxIndex = probs.indexOf(Math.max(...probs));
+    return {
+      label: this.classes[maxIndex],
+      confidence: probs[maxIndex],
+      allProbabilities: Object.fromEntries(
+        this.classes.map((c, i) => [c, probs[i]])
+      )
+    };
+  }
+}
+
+// Usage in your web app:
+// const classifier = new SoundTagClassifier();
+// await classifier.loadModel('/models/soundtag_model.json');
+// const audioBuffer = await audioContext.decodeAudioData(audioBlob);
+// const result = await classifier.predict(audioBuffer);
+// console.log(`Predicted: ${result.label} (${(result.confidence * 100).toFixed(1)}%)`);
+\end{lstlisting}
+
+\subsection{Colab Training Notebook Structure}
+
+\begin{verbatim}
+SoundTag_Training_Notebook.ipynb
+├── Cell 1: Mount Google Drive
+│   from google.colab import drive
+│   drive.mount('/content/drive')
+│
+├── Cell 2: Install dependencies
+│   !pip install librosa tensorflow opencv-python-headless
+│
+├── Cell 3: Load data from Drive
+│   X, y, label_map = prepare_dataset('/content/drive/MyDrive/SoundTag/data/')
+│
+├── Cell 4: Split train/val/test
+│   from sklearn.model_selection import train_test_split
+│   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+│   X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2)
+│
+├── Cell 5: Build model
+│   model = build_tiny_cnn()
+│
+├── Cell 6: Train
+│   history = model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=30)
+│
+├── Cell 7: Evaluate
+│   model.evaluate(X_test, y_test)
+│   Plot confusion matrix, per-class accuracy
+│
+├── Cell 8: Export to TFLite
+│   converter = tf.lite.TFLiteConverter.from_keras_model(model)
+│   converter.optimizations = [tf.lite.Optimize.DEFAULT]
+│   tflite_model = converter.convert()
+│   Save to Drive: /content/drive/MyDrive/SoundTag/models/soundtag_v1.tflite
+│
+└── Cell 9: Download link for Android/Web app
+    # Generate shareable Drive link for the model
+\end{verbatim}
+
+%==============================================================================
+\section{Cost Estimation (Zero Budget)}
+%==============================================================================
+
+\begin{table}[h]
+\centering
+\caption{Cost Breakdown — Student Edition}
+\begin{tabular}{@{}p{5cm}p{3cm}p{4cm}@{}}
+\toprule
+\textbf{Item} & \textbf{Cost} & \textbf{Notes} \\
+\midrule
+\textbf{Training GPU} & \$0 & Google Colab Free (T4, 12-hour sessions) \\
+\textbf{Backup GPU} & \$0 & Kaggle Notebooks (30 hrs/week free) \\
+\textbf{Storage} & \$0 & Google Drive (15 GB free) \\
+\textbf{Model Distribution} & \$0 & Google Drive links / GitHub Releases \\
+\textbf{API Server} & \$0 & Not needed (pull-based model updates) \\
+\textbf{Colab Pro (optional)} & \$10/mo & If free tier has queue issues \\
+\midrule
+\textbf{Total (Monthly)} & \textbf{\$0 -- \$10} & Basically free! \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==============================================================================
+\section{Risk Mitigation (Student Context)}
+%==============================================================================
+
+\begin{table}[h]
+\centering
+\caption{Student-Specific Risks and Mitigation}
+\begin{tabular}{@{}p{3.5cm}p{5cm}p{4.5cm}@{}}
+\toprule
+\textbf{Risk} & \textbf{Impact} & \textbf{Mitigation} \\
+\midrule
+\textbf{Colab disconnects mid-training} & High: Lose training progress & Save checkpoints every epoch; use ModelCheckpoint callback to Drive \\
+\textbf{Too few samples per class} & High: Model underperforms & Merge rare classes; collect more data; use data augmentation \\
+\textbf{Potato phones can't run TFLite} & Medium: Fallback needed & Bundle smallest model; use server inference fallback \\
+\textbf{iPhone compatibility issues} & Low: Only 2 iPhones & Use web app (TF.js in Safari); server inference fallback \\
+\textbf{Team members lose motivation} & Medium: Slow progress & Set weekly targets; celebrate milestones; divide work clearly \\
+\textbf{Model accuracy too low for thesis} & High: Not defendable & Reduce classes (8→5); focus on top 3 classes; show improvement over rounds \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==============================================================================
+\section{Timeline — 12 Week Plan}
+%==============================================================================
+
+\begin{table}[h]
+\centering
+\caption{Week-by-Week Timeline}
+\begin{tabular}{@{}p{2.5cm}p{3.5cm}p{7cm}@{}}
+\toprule
+\textbf{Week} & \textbf{Phase} & \textbf{Deliverables} \\
+\midrule
+\textbf{1--3} & Data Collection & 1,600+ labeled audio clips in Drive \\
+\textbf{4--5} & Central Training & Colab notebook, trained TFLite model, $\geq$70\% val accuracy \\
+\textbf{6--8} & Client ML Integration & Android + Web apps with on-device classification \\
+\textbf{9--10} & Active Learning Loop & Auto-classification, correction tracking, retraining cycle \\
+\textbf{11--12} & Thesis + Demo & Complete thesis, working demo, presentation slides \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==============================================================================
+\section{Conclusion}
+%==============================================================================
+
+\begin{highlightbox}
+\textbf{This plan is designed for your reality:}
+\begin{itemize}
+    \item \textbf{No budget} $\rightarrow$ Free Colab GPUs, free Drive storage, no always-on server
+    \item \textbf{Potato phones} $\rightarrow$ Tiny CNN model ($\sim$300K params, 1--2 MB), or server inference fallback
+    \item \textbf{Small team} $\rightarrow$ 1,600--4,000 samples total (not 40,000), 5--6 classes instead of 8 if needed
+    \item \textbf{12-week timeline} $\rightarrow$ Realistic milestones, proof-of-concept by Week 5, thesis-ready by Week 12
+\end{itemize}
+\end{highlightbox}
+
+\subsection{What You'll Have at the End}
+
+\begin{enumerate}[leftmargin=*,noitemsep]
+    \item A working Android app that auto-classifies noise on-device
+    \item A working web app with browser-based classification
+    \item A trained model that improves over time with more data
+    \item A Colab notebook for retraining (reproducible pipeline)
+    \item A thesis documenting the federated learning approach and results
+\end{enumerate}
+
+\subsection{What Makes This Impressive for a University Project}
+
+\begin{itemize}[leftmargin=*,noitemsep]
+    \item \textbf{Real-world problem}: Urban noise pollution is a genuine issue
+    \item \textbf{Federated learning concept}: Data stays on devices, model improves collaboratively
+    \item \textbf{End-to-end pipeline}: Data collection $\rightarrow$ training $\rightarrow$ deployment $\rightarrow$ improvement loop
+    \item \textbf{Working demo}: Live classification on real phones
+    \item \textbf{Zero budget}: Shows resourcefulness and engineering skill
+\end{itemize}
+
+\vspace{1cm}
+\noindent\rule{\textwidth}{0.5pt}
+\noindent\textbf{Document Version:} 2.0 (Student Budget Edition) \\
+\noindent\textbf{Date:} \today \\
+\noindent\textbf{Author:} SoundTag ML Team — University Project \\
+\noindent\textbf{Status:} Ready for Implementation — Zero Budget Required \\
+\noindent\textbf{Previous Version:} 1.0 (Industry-scale, \$4,000/month — replaced by this document)
+
+\end{document}
