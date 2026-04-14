@@ -2,7 +2,7 @@
 // Uses Google Identity Services token flow + Drive v3 REST API.
 // Writes audio + JSON sidecar into SoundTag/{annotator_id}/.
 
-import { GOOGLE_CLIENT_ID, DRIVE_SCOPE, DRIVE_ROOT_FOLDER } from "./config.js";
+import { GOOGLE_CLIENT_ID, DRIVE_SCOPE, DRIVE_ROOT_FOLDER, DRIVE_TARGET_FOLDER_ID } from "./config.js";
 
 const DRIVE_FILES = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
@@ -81,7 +81,9 @@ async function findOrCreateFolder(name, parentId) {
 }
 
 async function resolveTargetFolder(annotatorId) {
-  const root = await findOrCreateFolder(DRIVE_ROOT_FOLDER, "root");
+  const root = DRIVE_TARGET_FOLDER_ID
+    ? DRIVE_TARGET_FOLDER_ID
+    : await findOrCreateFolder(DRIVE_ROOT_FOLDER, "root");
   return findOrCreateFolder(annotatorId || "anonymous", root);
 }
 
