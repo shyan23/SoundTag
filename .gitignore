@@ -17,3 +17,4 @@ local.properties
 client_secret*.json
 gdrive_token.json
 .remember
+.vercel
