@@ -3,3 +3,11 @@ node_modules
 out
 *.log
 *.md
+
+# Local env files — NEXT_PUBLIC_GOOGLE_CLIENT_ID etc.
+.env
+.env.local
+.env.*.local
+
+# Vercel link metadata
+.vercel
