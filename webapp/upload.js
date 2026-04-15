@@ -2,7 +2,7 @@
 // Uses Google Identity Services token flow + Drive v3 REST API.
 // Writes audio + JSON sidecar into SoundTag/{annotator_id}/.
 
-import { GOOGLE_CLIENT_ID, DRIVE_SCOPE, DRIVE_ROOT_FOLDER, DRIVE_TARGET_FOLDER_ID } from "./config.js";
+import { GOOGLE_CLIENT_ID, DRIVE_SCOPE, DRIVE_TARGET_FOLDER_ID } from "./config.js";
 
 const DRIVE_FILES = "https://www.googleapis.com/drive/v3/files";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
@@ -61,32 +61,6 @@ async function driveFetch(url, opts = {}) {
   return r.json();
 }
 
-/** Find a folder by name under parent, or create it. Mirrors findOrCreateSingleFolder. */
-async function findOrCreateFolder(name, parentId) {
-  const q = encodeURIComponent(
-    `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' ` +
-    `and '${parentId}' in parents and trashed=false`
-  );
-  const list = await driveFetch(`${DRIVE_FILES}?q=${q}&fields=files(id)&spaces=drive`);
-  if (list.files && list.files.length > 0) return list.files[0].id;
-
-  const created = await driveFetch(DRIVE_FILES, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name, mimeType: "application/vnd.google-apps.folder", parents: [parentId],
-    }),
-  });
-  return created.id;
-}
-
-async function resolveTargetFolder(annotatorId) {
-  const root = DRIVE_TARGET_FOLDER_ID
-    ? DRIVE_TARGET_FOLDER_ID
-    : await findOrCreateFolder(DRIVE_ROOT_FOLDER, "root");
-  return findOrCreateFolder(annotatorId || "anonymous", root);
-}
-
 /** Multipart upload of a blob into a Drive folder. */
 async function uploadBlobToFolder(blob, name, folderId, mimeType) {
   const metadata = { name, parents: [folderId] };
@@ -118,9 +92,12 @@ export async function uploadRecording(audioBlob, metadata) {
   if (!GOOGLE_CLIENT_ID) {
     return { ok: false, error: "Google Drive not configured (set GOOGLE_CLIENT_ID in config.js)" };
   }
+  if (!DRIVE_TARGET_FOLDER_ID) {
+    return { ok: false, error: "DRIVE_TARGET_FOLDER_ID not set in config.js" };
+  }
   try {
     await ensureToken();
-    const folderId = await resolveTargetFolder(metadata.annotator_id);
+    const folderId = DRIVE_TARGET_FOLDER_ID;
 
     const baseName = metadata.filename.replace(/\.[^.]+$/, "");
     const audioMime = audioBlob.type || "audio/webm";

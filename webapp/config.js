@@ -14,12 +14,8 @@ export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || null
 // Drive scope — same as DriveUploader.kt (DriveScopes.DRIVE).
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
-// Root folder name in Drive. Matches APP_NAME in DriveUploader.kt.
-// Used only when DRIVE_TARGET_FOLDER_ID is null (fallback: create SoundTag/ under user's Drive root).
-export const DRIVE_ROOT_FOLDER = "SoundTag";
-
-// Shared target folder ID. When set, uploads go into {DRIVE_TARGET_FOLDER_ID}/{annotator_id}/
-// instead of creating a SoundTag/ folder under the user's Drive root.
+// Shared target folder ID. All uploads go directly into this folder (no subfolders).
+// annotator_id is recorded in the JSON sidecar instead.
 // Folder: https://drive.google.com/drive/folders/1Hv7bnjMLJ1189DgXfLVUhS5m8AA_AnHx
 // The signed-in Google account must have write access to this folder.
 export const DRIVE_TARGET_FOLDER_ID = "1Hv7bnjMLJ1189DgXfLVUhS5m8AA_AnHx";

@@ -583,7 +583,7 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
     notes,
     setNotes,
     saveFootnote: GOOGLE_CLIENT_ID
-      ? `Saves to Drive under SoundTag/${profile.annotatorId || "anonymous"}/`
+      ? "Saves to the shared SoundTag Drive folder"
       : "Drive not configured — save locally",
     onSave,
     recordings,
