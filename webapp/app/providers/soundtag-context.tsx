@@ -16,6 +16,7 @@ import { DbMeter } from "../../db_meter.js";
 import { getLocation } from "../../location.js";
 import { buildMetadata, saveLocally } from "../../metadata.js";
 import { uploadRecording } from "../../upload.js";
+import { splitAudio, CHUNK_SECONDS } from "../../split_audio.js";
 import {
   LABELS,
   SEVERITY_SCORES,
@@ -389,6 +390,9 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
       const meta = currentMetadata();
       if (!meta) return;
 
+      const durationSec = Math.round(lastRecording.durationMs / 1000);
+      const needsSplit = durationSec > CHUNK_SECONDS;
+
       try {
         await putBlob(meta.filename, lastRecording.blob, lastRecording.mimeType);
       } catch (e: any) {
@@ -399,10 +403,46 @@ export function SoundTagProvider({ children }: { children: ReactNode }) {
       let status = "Local";
 
       if (mode === "upload" && GOOGLE_CLIENT_ID) {
-        setToastMessage("Uploading…");
-        const res = await uploadRecording(lastRecording.blob, meta);
-        status = res.ok ? "Uploaded" : "Failed";
-        setToastMessage(res.ok ? "Uploaded" : `Upload failed: ${res.error}`, res.ok ? "success" : "error");
+        if (!needsSplit) {
+          setToastMessage("Uploading…");
+          const res = await uploadRecording(lastRecording.blob, meta);
+          status = res.ok ? "Uploaded" : "Failed";
+          setToastMessage(res.ok ? "Uploaded" : `Upload failed: ${res.error}`, res.ok ? "success" : "error");
+        } else {
+          setToastMessage("Splitting & uploading…");
+          try {
+            const chunks = await splitAudio(lastRecording.blob);
+            const baseName = meta.filename.replace(/\.[^.]+$/, "");
+            let uploaded = 0;
+            let failed = 0;
+            for (const chunk of chunks) {
+              const chunkFilename = `${baseName}_chunk${String(chunk.index + 1).padStart(3, "0")}.wav`;
+              const chunkMeta = {
+                ...meta,
+                filename: chunkFilename,
+                duration_seconds: Math.round(chunk.durationMs / 1000),
+                encoding: "PCM",
+                chunk_index: chunk.index,
+                chunk_total: chunks.length,
+                original_filename: meta.filename,
+                original_duration_seconds: durationSec,
+              };
+              const res = await uploadRecording(chunk.blob, chunkMeta);
+              if (res.ok) uploaded++;
+              else failed++;
+            }
+            status = failed === 0 ? "Uploaded" : "Failed";
+            setToastMessage(
+              failed === 0
+                ? `Uploaded ${uploaded} chunks`
+                : `${uploaded}/${chunks.length} chunks uploaded, ${failed} failed`,
+              failed === 0 ? "success" : "error",
+            );
+          } catch (e: any) {
+            status = "Failed";
+            setToastMessage(`Split failed: ${e.message}`, "error");
+          }
+        }
       } else if (mode === "upload" && !GOOGLE_CLIENT_ID) {
         status = "Pending";
         setToastMessage("Saved (Drive not configured)", "success");
